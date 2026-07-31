@@ -71,7 +71,11 @@ void main() {
     // Stirred around the point the cursor touches the sea — the same centre
     // the shadows use, so deck and shadow are disturbed as one event.
     vec2 p1 = cloudStir(cloudPlaneFromDir(dir, uTime), uStir, 0.42, 0.10);
-    float c1 = cloudDensity(p1, uTime, uCoverage);
+
+    // Thickness, not presence. Everything below reads off it: how much sky
+    // shows through, and how much sunlight reaches this part of the cloud.
+    float depth = cloudDepth(p1, uTime, uCoverage);
+    float c1 = cloudOpacity(depth);
 
     // Cirrus. Deliberately thresholded high and kept faint: as a veil across
     // the whole sky it was doing more than anything else to make the frame
@@ -81,12 +85,15 @@ void main() {
     float c2 = smoothstep(0.66, 0.86, cloudFbm(p2, uTime * 1.6))
              * (0.10 + uCoverage * 0.16);
 
-    // Self-shadowing: compare density here against a step toward the sun.
-    // Where the cloud thins sunward, light gets through — that difference is
-    // the silver lining.
+    // Light reaching this parcel, attenuated by however much cloud stands
+    // between it and the sun. This is why a cumulus is brilliant at the rim and
+    // grey in the middle: the core has the most cloud above it, so the least
+    // light gets down to it. Comparing two opacities could never produce that —
+    // opacity saturates, and depth does not.
     vec2 toSun = normalize(sun.xz + vec2(0.0001)) * 0.55;
-    float cSun = cloudDensity(p1 + toSun, uTime, uCoverage);
-    float lit = clamp((c1 - cSun) * 1.6 + 0.32, 0.0, 1.0);
+    float depthSun = cloudDepth(p1 + toSun * 0.5, uTime, uCoverage)
+                   + cloudDepth(p1 + toSun, uTime, uCoverage);
+    float lit = exp(-depthSun * 0.55);
 
     vec3 sunlitTop = mix(vec3(1.0), uSunColor, 0.42) * (0.75 + 0.45 * uIntensity);
     vec3 shadedBase = mix(uSkyTop * 1.05, uAmbient, 0.55);
