@@ -206,7 +206,7 @@ class App {
     const submerged = THREE.MathUtils.smoothstep(-this.camera.position.y, -0.8, 0.8);
     u.uUnderwater.value = submerged;
     this.world.setUnderwater(submerged, this.camera.position.y);
-    this.world.update(dt, this.camera.position.y, u.uTime.value, this.camera.position);
+    this.world.update(dt, this.camera.position.y, u.uTime.value);
 
     // Populate the reef for whichever section the carousel has settled on.
     // Doing this on change rather than per frame keeps the instance rebuild
@@ -214,7 +214,7 @@ class App {
     const settled = Math.round(s);
     if (settled !== this._populatedFor) {
       this._populatedFor = settled;
-      this.world.applySection(SECTIONS[settled]);
+      this.world.applySection(SECTIONS[settled], this.camera.position);
     }
 
     // Where the cursor lands on the sea. Both the sky clouds and their shadows

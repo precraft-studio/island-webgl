@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { swellHeight, swellNormal, CHOP_AMPLITUDE } from './waves.js';
-import { RIGID_VERT, RIGID_FRAG, WAKE_VERT, WAKE_FRAG } from './shaders/surface.js';
+import { RIGID_VERT, RIGID_FRAG } from './shaders/surface.js';
 
 /**
  * A boat, sailing.
@@ -24,23 +24,18 @@ export class Sailboat {
     this.group.visible = false;
 
     /**
-     * The boat sails across the view, not around the island.
+     * The boat lies at anchor. It does not sail anywhere.
      *
-     * A fixed world circuit put it at a radius greater than the camera's, which
-     * means behind the viewer — technically sailing, never seen. Its track is
-     * therefore held between the camera and the island, and its bearing is
-     * offset from the camera's own, so it crosses the frame and comes round
-     * again instead of wandering out of shot.
+     * A moving boat has to be chased by the framing, and a track that loops has
+     * to hide its wrap. At anchor it just sits in one place on the water and
+     * answers the swell, which is the whole of what it needs to do: the camera
+     * comes up from under the surface and finds it there.
+     *
+     * The anchor is placed once, when the section is entered, from wherever the
+     * camera is standing — after that it is a fixed point in the world, not
+     * something that follows the viewer around.
      */
-    this.track = {
-      radius: 44,   // camera sits at ~72, so this passes ~28 units in front
-      cross: -0.38, // bearing offset from the camera, in radians
-      // Span is deliberately wider than the frame. Measured half-FOV here is
-      // ~22 degrees and ±0.38 puts the boat at ~28, so it sails out of shot
-      // before the track loops — otherwise the wrap is a visible teleport.
-      span: 0.38,
-      speed: 0.05,  // ~15s to cross
-    };
+    this.anchor = { x: 0, z: 28, bearing: 0, placed: false };
     this.time = 0;
 
     this.#build();
@@ -115,26 +110,6 @@ export class Sailboat {
     this.hull.add(this.#sail(3.2, 6.4, 0.42, { x: 0, y: 1.1, z: -1.1 }, 1));
     this.hull.add(this.#sail(2.0, 4.1, 0.34, { x: 0, y: 1.4, z: 1.5 }, -1));
 
-    // --- Wake ------------------------------------------------------------
-    const wakeGeo = new THREE.PlaneGeometry(7, 34, 1, 24);
-    wakeGeo.rotateX(-Math.PI / 2);
-    wakeGeo.translate(0, 0, -17);
-    this.wake = new THREE.Mesh(
-      wakeGeo,
-      new THREE.ShaderMaterial({
-        vertexShader: WAKE_VERT,
-        fragmentShader: WAKE_FRAG,
-        transparent: true,
-        depthWrite: false,
-        uniforms: {
-          uTime: this.shared.uTime,
-          uSunColor: this.shared.uSunColor,
-          uIntensity: this.shared.uIntensity,
-        },
-      })
-    );
-    // Sits on the water, not on the rolling hull.
-    this.group.add(this.wake);
   }
 
   /** One sail: a right triangle bowed away from the centreline. */
@@ -170,38 +145,46 @@ export class Sailboat {
     return mesh;
   }
 
-  setActive(on) {
+  setActive(on, cameraPos) {
     this.group.visible = on;
+    if (!on) {
+      this.anchor.placed = false;
+      return;
+    }
+    if (!this.anchor.placed && cameraPos) {
+      // Drop it just off the camera's line, close enough to read against the
+      // water. atan2(x, z) measures from +Z, so positions use sin for x.
+      const camAz = Math.atan2(cameraPos.x, cameraPos.z);
+      const a = camAz + 0.13;
+      const r = 28;
+      this.anchor.x = Math.sin(a) * r;
+      this.anchor.z = Math.cos(a) * r;
+      // Lying across the view rather than pointing at it, so the hull and the
+      // sails both read instead of foreshortening into a sliver.
+      this.anchor.bearing = a + Math.PI * 0.38;
+      this.anchor.placed = true;
+    }
   }
 
-  update(dt, time, cameraPos) {
+  update(dt, time) {
     if (!this.group.visible) return;
     this.time = time;
 
-    const t = this.track;
-    t.cross += t.speed * dt;
-    // Loop the crossing rather than reversing it: a boat that sails out of
-    // frame and comes back the other way reads as a pendulum, not a boat.
-    if (t.cross > t.span) t.cross = -t.span;
-
-    // Bearing is measured from wherever the camera is standing, so the track
-    // stays in front of the viewer whichever section the carousel has settled
-    // on. Falls back to a fixed bearing before the first camera update.
-    const camAz = cameraPos ? Math.atan2(cameraPos.x, cameraPos.z) : 0;
-    const a = camAz + t.cross;
-    const r = t.radius;
-    // atan2(x, z) measures from +Z, so the position uses sin for x.
-    const x = Math.sin(a) * r;
-    const z = Math.cos(a) * r;
+    const x = this.anchor.x;
+    const z = this.anchor.z;
 
     // Ride the swell — the same one the water shader displaces with.
     const y = swellHeight(x, z, time);
     // Sink the hull so the chop it ignores breaks over it rather than under.
     this.group.position.set(x, y - CHOP_AMPLITUDE * 0.6, z);
 
-    // Heading: the tangent of the track it is on. The hull's bow is local +Z,
-    // which a Y rotation of θ sends to (sin θ, cos θ).
-    const heading = a + Math.PI / 2;
+    // At anchor a boat swings slowly around its rode rather than holding a
+    // bearing. Two periods that do not divide into each other, so the swing
+    // never settles into an obvious loop.
+    const heading =
+      this.anchor.bearing +
+      Math.sin(time * 0.117) * 0.16 +
+      Math.sin(time * 0.041) * 0.09;
     this.group.rotation.y = heading;
 
     const fwdX = Math.sin(heading);
@@ -219,6 +202,5 @@ export class Sailboat {
     this.hull.rotation.x = along * 0.55;
     this.hull.rotation.z = -across * 0.55 + 0.13;
 
-    this.wake.position.y = 0.06;
   }
 }

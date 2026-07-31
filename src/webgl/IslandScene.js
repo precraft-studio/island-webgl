@@ -135,18 +135,18 @@ export class IslandScene {
   }
 
   /** Called on navigation: rebuild the reef population for this section. */
-  applySection(section) {
+  applySection(section, cameraPos) {
     this.seabed.populate(section.life);
     this.flora.populate(section.flora);
     // Only the sailing section carries a boat; only the close-approach section
     // pays for vegetation.
     this.flora.setActive(!!section.flora);
-    this.boat.setActive(section.journey === 'sail');
+    this.boat.setActive(section.journey === 'sail', cameraPos);
   }
 
-  update(dt, cameraY, time, cameraPos) {
+  update(dt, cameraY, time) {
     this.seabed.update(dt, cameraY);
-    this.boat.update(dt, time, cameraPos);
+    this.boat.update(dt, time);
   }
 
   #buildSky() {

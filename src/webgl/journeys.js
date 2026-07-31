@@ -29,9 +29,12 @@ const JOURNEYS = {
    */
   sail: [
     [0.00, { h: 124, d: 100, look: 1.5, az: 0.0 }],
-    [0.40, { h: 38, d: 88, look: 4.0, az: 0.06 }],
-    [0.72, { h: 12, d: 78, look: 4.5, az: 0.14 }],
-    [1.00, { h: 5.5, d: 72, look: 5.0, az: 0.2 }],
+    [0.26, { h: 40, d: 88, look: 4.0, az: 0.04 }],
+    [0.42, { h: 2.0, d: 78, look: 0.5, az: 0.08 }],   // touches the surface
+    [0.56, { h: -3.2, d: 68, look: -1.5, az: 0.11 }], // slips under
+    [0.78, { h: -2.4, d: 56, look: 1.5, az: 0.15 }],  // runs along beneath it
+    [0.92, { h: 0.4, d: 50, look: 4.0, az: 0.18 }],   // breaks through
+    [1.00, { h: 4.2, d: 47, look: 5.5, az: 0.2 }],    // and there is the boat
   ],
 
   /**
