@@ -1,5 +1,7 @@
 # island-webgl — Phase 0
 
+**Live: https://precraft-studio.github.io/island-webgl/**
+
 Technical prototype for an island WebGL scroll experience.
 
 **What this exists to prove:** that the hardest parts of the pipeline work
@@ -20,6 +22,18 @@ npm run dev
 
 Then: **drag horizontally** across the hero to turn between the five sections,
 and **scroll** to move through the chapters of whichever section you landed on.
+On a phone, swipe. Arrow keys work too — the drag must not be the only way in.
+
+## Deploy it
+
+```bash
+./scripts/deploy.sh
+```
+
+Builds, then force-pushes the output to the `gh-pages` branch that Pages serves.
+Note the site is mounted at `/island-webgl/`, so `astro.config.mjs` sets `base`
+and `pathFor()` in `config/sections.js` reads `BASE_URL` — the drag carousel
+routes from JS, which Astro cannot rewrite for us.
 
 ## The interaction model
 
@@ -107,8 +121,9 @@ appear to travel across the island. That number is load-bearing.
 - **Phase 1 — DOM polish.** Chapter navigation, hero entrance timeline, sound toggle.
 - **Phase 2 — real art.** Replace `IslandScene.height()` with a GLTF load, add
   the aerial photo (see `public/textures/README.md`), bake a lightmap.
-- **Phase 3 — production.** Camera path per chapter, KTX2/Draco compression,
-  mobile performance pass (DPR is already capped at 2).
+- **Phase 3 — production.** Camera path per chapter, KTX2/Draco compression.
+  The responsive pass is done (see Performance notes); what remains untested is
+  the frame rate on real phone hardware.
 
 ### Visual direction: hybrid
 
@@ -121,8 +136,20 @@ sweep entirely, which is the signature effect.
 
 ## Performance notes
 
-- Device pixel ratio is capped at **2**. Mobile runs the full 3D scene with no
-  2D fallback, so this cap matters.
+- Device pixel ratio is capped at **2**, and on coarse pointers a **1.8 Mpx
+  drawing-buffer budget** rides alongside it. The scene is fragment-bound, so
+  cost tracks the buffer, not the CSS size — a ratio cap alone says nothing
+  about a large tablet that already exceeds a mobile GPU at 2x. Mobile runs the
+  full 3D scene with no 2D fallback, so both caps matter.
+- Framing is held **horizontally**. `fov` is the vertical angle, so a fixed
+  value narrows the horizontal view as the window gets taller and every camera
+  distance in `journeys.js` goes wrong at once on a phone. The vertical angle is
+  derived from a fixed horizontal one instead: the island holds ~40% of frame
+  width in portrait against ~37% on desktop.
+- Resize is driven by a **ResizeObserver** on the canvas wrapper, not by the
+  window resize event, which on iOS fires late on rotation and unreliably when
+  the URL bar collapses. `resize()` ignores a repeat of the size it already has,
+  so several sources reporting one rotation reallocate the composer once.
 - Water is a 200×200 grid; the terrain is 200×200. Both are candidates for LOD
   reduction on small screens if the frame budget gets tight.
 - No textures are loaded at all until an aerial photo is supplied.
