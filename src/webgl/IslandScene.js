@@ -112,6 +112,12 @@ export class IslandScene {
    * `t` is the normalised distance to the coastline: 0 at the centre, 1 on the
    * heart outline. Tavarua is a low coral island, so the profile is a wide flat
    * sand shelf that lifts into a gently domed, vegetated interior — not a peak.
+   *
+   * Past the coastline it keeps going DOWN. An island is the top of something,
+   * and if the surface stops at the waterline it is a disc floating on the sea
+   * — which is exactly what it looked like from the seabed. The flank falls
+   * away to meet the reef floor, so the two surfaces intersect instead of
+   * leaving a gap.
    */
   static height(x, z) {
     const r = Math.hypot(x, z);
@@ -127,7 +133,27 @@ export class IslandScene {
     const ridge = 1 - Math.abs(fbm2D(x * 0.021 + 11.3, z * 0.021 - 7.1, 3));
     const relief = grain * 0.5 + ridge * 0.3 + 0.2;
 
-    return beach * 2.3 + inland * relief * 13 - 1.35;
+    // The submerged flank. Steep just below the shore where the reef wall
+    // drops, easing off as it runs out to the floor — and carrying the same
+    // noise as the rest, so it is a slope rather than a cone.
+    const drop = Math.max(0, t - 1);
+    const flank = -(drop ** 1.35) * 26 * (0.82 + relief * 0.36);
+
+    return beach * 2.3 + inland * relief * 13 - 1.35 + flank;
+  }
+
+  /**
+   * Distance to the coastline, normalised: 0 at the island's centre, 1 on the
+   * outline, greater than 1 out in the lagoon.
+   *
+   * This is the variable vegetation actually organises itself around. Real
+   * coral islands band by exposure to salt and wind, not by altitude — using
+   * height instead is what produces an even scatter with no shoreline to it.
+   */
+  static coastT(x, z) {
+    const r = Math.hypot(x, z);
+    const R = heartRadius(HEART_LUT, Math.atan2(z, x)) * ISLAND_RADIUS;
+    return r / Math.max(R, 0.001);
   }
 
   /** Told once per frame how submerged the camera is (0 above, 1 below). */

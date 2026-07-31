@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { FLORA_VERT, FLORA_FRAG } from './shaders/surface.js';
 import { IslandScene } from './IslandScene.js';
+import { populateFlora } from './flora-populate.js';
 
 /**
  * What grows on the island, and what washes up on it.
@@ -16,7 +17,7 @@ import { IslandScene } from './IslandScene.js';
  * comes close enough to see it.
  */
 
-const MAX = { palm: 120, shrub: 200, grass: 3200, wood: 24 };
+const MAX = { palm: 120, shrub: 420, grass: 3200, wood: 24, pandanus: 70, bure: 18 };
 
 function rng(seed) {
   let s = seed >>> 0;
@@ -43,6 +44,8 @@ export class Flora {
     this.#buildPalms();
     this.#buildShrubs();
     this.#buildGrass();
+    this.#buildPandanus();
+    this.#buildBures();
     this.#buildDriftwood();
   }
 
@@ -137,6 +140,49 @@ export class Flora {
     this.grass = this.#instanced(mergeGeos([blade, second]), MAX.grass, 0.85);
   }
 
+  /**
+   * Pandanus. Spindly trunk, stilt roots, and a crown of stiff blades thrown
+   * out in a spiral — nothing like a palm, which is the point. An island with
+   * one tree silhouette repeated reads as wallpaper however many you place.
+   */
+  #buildPandanus() {
+    const trunk = new THREE.CylinderGeometry(0.16, 0.34, 5.2, 6, 4);
+    const tp = trunk.attributes.position;
+    for (let i = 0; i < tp.count; i++) {
+      const y = tp.getY(i) + 2.6;
+      tp.setXYZ(i, tp.getX(i) + Math.sin(y * 0.42) * 0.5, y, tp.getZ(i));
+    }
+    trunk.computeVertexNormals();
+    this.pandanusTrunk = this.#instanced(trunk, MAX.pandanus, 0.08);
+
+    // A blade: long, narrow, stiffly arched — not drooping like a frond.
+    const blade = new THREE.PlaneGeometry(3.4, 0.42, 8, 1);
+    const bp = blade.attributes.position;
+    for (let i = 0; i < bp.count; i++) {
+      const x = bp.getX(i) + 1.7;
+      const t = x / 3.4;
+      bp.setXYZ(i, x, -(t ** 2.4) * 1.5, bp.getY(i) * (1 - t * 0.6));
+    }
+    blade.computeVertexNormals();
+    this.pandanusBlades = this.#instanced(blade, MAX.pandanus * 9, 0.85);
+  }
+
+  /**
+   * A thatched bure. Squat walls under a steep hipped roof — the roof is the
+   * whole silhouette, and getting its pitch right matters more than any detail
+   * on it at the distances this is seen from.
+   */
+  #buildBures() {
+    const body = new THREE.BoxGeometry(3.4, 2.2, 4.2);
+    body.translate(0, 1.1, 0);
+    this.bureWalls = this.#instanced(body, MAX.bure, 0);
+
+    const roof = new THREE.ConeGeometry(3.5, 2.8, 4, 1);
+    roof.rotateY(Math.PI / 4);
+    roof.translate(0, 3.6, 0);
+    this.bureRoofs = this.#instanced(roof, MAX.bure, 0.15);
+  }
+
   #buildDriftwood() {
     const geo = new THREE.CylinderGeometry(0.16, 0.24, 3.4, 5);
     geo.rotateZ(Math.PI / 2);
@@ -145,139 +191,7 @@ export class Flora {
 
   /** Place everything. Called on navigation, not per frame. */
   populate(flora) {
-    const cfg = flora || { palms: 0, shrubs: 0, grass: 0, driftwood: 0 };
-    const rand = rng(775533);
-    const m = new THREE.Matrix4();
-    const q = new THREE.Quaternion();
-    const pos = new THREE.Vector3();
-    const scl = new THREE.Vector3();
-    const up = new THREE.Vector3(0, 1, 0);
-
-    const write = (mesh, i, tint, phase, stiff) => {
-      mesh.geometry.getAttribute('aTint').setXYZ(i, tint[0], tint[1], tint[2]);
-      mesh.geometry.getAttribute('aPhase').setX(i, phase);
-      mesh.geometry.getAttribute('aStiff').setX(i, stiff);
-    };
-    const flush = (mesh, n) => {
-      mesh.count = n;
-      mesh.instanceMatrix.needsUpdate = true;
-      for (const a of ['aTint', 'aPhase', 'aStiff']) {
-        mesh.geometry.getAttribute(a).needsUpdate = true;
-      }
-    };
-
-    /** Find a spot matching height and slope limits, or null. */
-    const spot = (minH, maxH, maxSlope, tries = 60) => {
-      for (let k = 0; k < tries; k++) {
-        const a = rand() * Math.PI * 2;
-        const r = rand() ** 0.65 * 33;
-        const x = Math.cos(a) * r;
-        const z = Math.sin(a) * r;
-        const h = IslandScene.height(x, z);
-        if (h < minH || h > maxH) continue;
-        if (slopeAt(x, z) > maxSlope) continue;
-        return { x, z, h };
-      }
-      return null;
-    };
-
-    // --- Palms, with their fronds ----------------------------------------
-    let p = 0;
-    let f = 0;
-    const nPalms = Math.min(cfg.palms ?? 0, MAX.palm);
-    while (p < nPalms) {
-      const s = spot(2.6, 12, 0.55);
-      if (!s) break;
-
-      const lean = rand() * Math.PI * 2;
-      const scale = 0.7 + rand() * 0.6;
-      pos.set(s.x, s.h - 0.3, s.z);
-      scl.setScalar(scale);
-      q.setFromAxisAngle(up, lean);
-      m.compose(pos, q, scl);
-      this.palmTrunk.setMatrixAt(p, m);
-      write(this.palmTrunk, p, [0.42, 0.34, 0.24], rand() * 6.28, 0.011);
-
-      // The crown sits at the top of the bent trunk, offset the way it leaned.
-      const crownY = s.h - 0.3 + 9.5 * scale;
-      const bendOff = 1.5 * scale;
-      const cx = s.x + Math.cos(lean) * bendOff;
-      const cz = s.z - Math.sin(lean) * bendOff;
-
-      const fronds = 6 + ((rand() * 2) | 0);
-      for (let k = 0; k < fronds && f < MAX.palm * 7; k++) {
-        const spin = lean + (k / fronds) * Math.PI * 2 + rand() * 0.25;
-        const tiltUp = 0.25 + rand() * 0.5;
-        pos.set(cx, crownY, cz);
-        scl.setScalar(scale * (0.85 + rand() * 0.3));
-        const e = new THREE.Euler(0, -spin, tiltUp);
-        q.setFromEuler(e);
-        m.compose(pos, q, scl);
-        this.palmFronds.setMatrixAt(f, m);
-        const g = 0.26 + rand() * 0.16;
-        write(this.palmFronds, f, [g * 0.40, g * 1.55, g * 0.34], rand() * 6.28, 0.02);
-        f++;
-      }
-      p++;
-    }
-    flush(this.palmTrunk, p);
-    flush(this.palmFronds, f);
-
-    // --- Shrubs ----------------------------------------------------------
-    let sh = 0;
-    const nShrubs = Math.min(cfg.shrubs ?? 0, MAX.shrub);
-    while (sh < nShrubs) {
-      const s = spot(1.6, 11, 0.75);
-      if (!s) break;
-      const scale = 0.6 + rand() * 1.5;
-      pos.set(s.x, s.h + scale * 0.3, s.z);
-      scl.set(scale, scale * (0.6 + rand() * 0.5), scale);
-      q.setFromAxisAngle(up, rand() * Math.PI * 2);
-      m.compose(pos, q, scl);
-      this.shrubs.setMatrixAt(sh, m);
-      const g = 0.2 + rand() * 0.18;
-      write(this.shrubs, sh, [g * 0.50, g * 1.62, g * 0.40], rand() * 6.28, 0.014);
-      sh++;
-    }
-    flush(this.shrubs, sh);
-
-    // --- Grass -----------------------------------------------------------
-    let gr = 0;
-    const nGrass = Math.min(cfg.grass ?? 0, MAX.grass);
-    let guard = 0;
-    while (gr < nGrass && guard++ < nGrass * 6) {
-      const s = spot(1.1, 10, 0.6, 8);
-      if (!s) continue;
-      const scale = 0.5 + rand() * 0.9;
-      pos.set(s.x, s.h, s.z);
-      scl.set(scale, scale * (0.7 + rand() * 0.8), scale);
-      q.setFromAxisAngle(up, rand() * Math.PI * 2);
-      m.compose(pos, q, scl);
-      this.grass.setMatrixAt(gr, m);
-      const g = 0.24 + rand() * 0.2;
-      write(this.grass, gr, [g * 0.66, g * 1.58, g * 0.38], rand() * 6.28, 0.05);
-      gr++;
-    }
-    flush(this.grass, gr);
-
-    // --- Driftwood, on the sand just above the waterline ------------------
-    let w = 0;
-    const nWood = Math.min(cfg.driftwood ?? 0, MAX.wood);
-    guard = 0;
-    while (w < nWood && guard++ < nWood * 40) {
-      const s = spot(0.15, 1.5, 0.35, 10);
-      if (!s) continue;
-      const scale = 0.7 + rand() * 0.9;
-      pos.set(s.x, s.h + 0.16 * scale, s.z);
-      scl.setScalar(scale);
-      q.setFromEuler(new THREE.Euler(rand() * 0.3, rand() * Math.PI * 2, rand() * 0.2));
-      m.compose(pos, q, scl);
-      this.wood.setMatrixAt(w, m);
-      const t = 0.5 + rand() * 0.2;
-      write(this.wood, w, [t, t * 0.92, t * 0.8], rand() * 6.28, 0);
-      w++;
-    }
-    flush(this.wood, w);
+    populateFlora(this, flora || {}, rng(775533));
   }
 
   setActive(on) {

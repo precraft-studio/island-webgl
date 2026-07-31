@@ -92,7 +92,7 @@ export const SECTIONS = [
     slug: 'canopy',
     // Comes in close enough that individual palms read.
     journey: 'island',
-    flora: { palms: 90, shrubs: 140, grass: 2600, driftwood: 14 },
+    flora: { palms: 95, pandanus: 55, shrubs: 380, grass: 1800, driftwood: 16, bures: 14 },
     clouds: 0.5,
     sun: 0.66,
     nav: 'The Canopy',
