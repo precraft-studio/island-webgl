@@ -173,6 +173,17 @@ void main() {
 
   // Submerged parts of the island belong to the water, not the air.
   float submerged = max(uUnderwater, smoothstep(0.6, -1.2, vWorldPos.y));
+
+  // Caustics on the sand. The lagoon floor IS this terrain, not the reef bed,
+  // so without this the shallow water a diver swims over has no moving light
+  // on it at all — which is most of why going under there looked like nothing
+  // happened. Strongest in the shallows, gone by the time it is deep.
+  if (submerged > 0.01) {
+    float shallow = 1.0 - smoothstep(0.0, 16.0, -vWorldPos.y);
+    float caus = caustics(vWorldPos.xz, uTime) * clamp(N.y, 0.0, 1.0);
+    color += uSunColor * caus * shallow * submerged * 1.35 * uIntensity * shade;
+  }
+
   color = underwaterMedium(color, dist, deepWater(uWaterColor), submerged);
 
   float fog = smoothstep(uFogNear, uFogFar, dist);

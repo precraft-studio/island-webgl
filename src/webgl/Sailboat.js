@@ -156,7 +156,7 @@ export class Sailboat {
       // water. atan2(x, z) measures from +Z, so positions use sin for x.
       const camAz = Math.atan2(cameraPos.x, cameraPos.z);
       const a = camAz + 0.13;
-      const r = 28;
+      const r = 22;
       this.anchor.x = Math.sin(a) * r;
       this.anchor.z = Math.cos(a) * r;
       // Lying across the view rather than pointing at it, so the hull and the

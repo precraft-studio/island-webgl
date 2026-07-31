@@ -27,14 +27,24 @@ const JOURNEYS = {
    * is at eye level — the whole point is to be ON the water rather than above
    * it, which is what makes it read as unhurried rather than as an approach.
    */
+  /**
+   * Down to the water, under it, and up again to find the boat.
+   *
+   * The submerged stretch runs close in, at d≈44, because that is where the
+   * island's own flank is only a few units down — a lagoon floor you can see.
+   * Dipping further out put the camera in open blue with the bottom 25 units
+   * below and nothing in frame, which is why going under read as nothing
+   * happening at all.
+   */
   sail: [
     [0.00, { h: 124, d: 100, look: 1.5, az: 0.0 }],
-    [0.26, { h: 40, d: 88, look: 4.0, az: 0.04 }],
-    [0.42, { h: 2.0, d: 78, look: 0.5, az: 0.08 }],   // touches the surface
-    [0.56, { h: -3.2, d: 68, look: -1.5, az: 0.11 }], // slips under
-    [0.78, { h: -2.4, d: 56, look: 1.5, az: 0.15 }],  // runs along beneath it
-    [0.92, { h: 0.4, d: 50, look: 4.0, az: 0.18 }],   // breaks through
-    [1.00, { h: 4.2, d: 47, look: 5.5, az: 0.2 }],    // and there is the boat
+    [0.26, { h: 40, d: 78, look: 4.0, az: 0.04 }],
+    [0.44, { h: 1.6, d: 56, look: 0.0, az: 0.08 }],   // touches the surface
+    [0.58, { h: -2.6, d: 48, look: -3.5, az: 0.11 }], // under, looking at sand
+    [0.74, { h: -3.4, d: 44, look: -2.0, az: 0.14 }], // runs along the bottom
+    [0.86, { h: -1.6, d: 42, look: 2.0, az: 0.17 }],  // rising, surface above
+    [0.94, { h: 1.0, d: 40, look: 4.5, az: 0.19 }],   // breaks through
+    [1.00, { h: 4.0, d: 38, look: 5.5, az: 0.2 }],    // and there is the boat
   ],
 
   /**

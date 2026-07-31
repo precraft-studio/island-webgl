@@ -133,10 +133,21 @@ export class IslandScene {
     const ridge = 1 - Math.abs(fbm2D(x * 0.021 + 11.3, z * 0.021 - 7.1, 3));
     const relief = grain * 0.5 + ridge * 0.3 + 0.2;
 
-    // The submerged flank. Steep just below the shore where the reef wall
-    // drops, easing off as it runs out to the floor — and carrying the same
-    // noise as the rest, so it is a slope rather than a cone.
-    const drop = Math.max(0, t - 1);
+    // The submerged flank.
+    //
+    // It does NOT keep the heart. That outline is a surface phenomenon — where
+    // wave energy and coral growth meet the waterline — and extruding it
+    // downward gives a heart-shaped plinth, which is not how islands are built.
+    // The further down it goes the more it forgets the shoreline and becomes
+    // the broad, lumpy pedestal underneath.
+    const pedestalR =
+      ISLAND_RADIUS * (1.15 + fbm2D(x * 0.011 + 4.7, z * 0.011 - 2.3, 3) * 0.55);
+    const tPedestal = r / pedestalR;
+
+    const forget = smoothstep(0.0, 1.1, t - 1.0);
+    const tFlank = t * (1 - forget) + tPedestal * forget;
+
+    const drop = Math.max(0, tFlank - 1);
     const flank = -(drop ** 1.35) * 26 * (0.82 + relief * 0.36);
 
     return beach * 2.3 + inland * relief * 13 - 1.35 + flank;

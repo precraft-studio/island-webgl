@@ -18,6 +18,19 @@ import { IslandScene } from './IslandScene.js';
  * Zonation after FAO's Pacific forest survey and the USGS Palmyra Atoll
  * management plan: Scaevola / Pandanus / Tournefortia on the beach ridge,
  * opening into coconut behind it.
+ *
+ * COLOUR. Every green here used to come from one formula with only its
+ * brightness varied, which is a single hue however many plants you place. The
+ * species in this zone are not one colour:
+ *
+ *   Tournefortia argentea  dense silvery hairs — argentea means silvery
+ *   Scaevola taccada       glossy bright green
+ *   Pandanus tectorius     light green, cooler than coconut
+ *   Cocos nucifera         vivid green at the crown top, ageing through deep
+ *                          green to the brown skirt of dead fronds beneath
+ *
+ * The silver shrub and the brown frond skirt are what break the monotone, and
+ * both are real features of this exact band rather than invented variety.
  */
 
 /** Slope at a point, from the island height field. */
@@ -107,23 +120,42 @@ export function populateFlora(flora, cfg, rand) {
     );
     m.compose(pos, q, scl);
     flora.palmTrunk.setMatrixAt(p, m);
-    write(flora.palmTrunk, p, [0.44, 0.35, 0.25], rand() * 6.28, 0.011);
+    // Coconut trunks weather grey, not brown — brown is a young palm or a wet one.
+    const tg = 0.40 + rand() * 0.12;
+    write(flora.palmTrunk, p, [tg, tg * 0.95, tg * 0.84], rand() * 6.28, 0.011);
 
     const crownY = h - 0.3 + 9.5 * scale * Math.cos(lean);
     const off = 1.5 * scale + lean * 4.0 * scale;
     const cx = x + Math.cos(spin) * off;
     const cz = z - Math.sin(spin) * off;
 
-    const fronds = 7 + ((rand() * 3) | 0);
+    // A coconut crown is a life-cycle, not a rosette: vivid new growth stands
+    // up at the top, mature fronds arch out around it, and dead ones hang
+    // straight down in a brown skirt until they drop.
+    const fronds = 9 + ((rand() * 3) | 0);
     for (let k = 0; k < fronds && f < maxFronds; k++) {
-      const around = spin + (k / fronds) * Math.PI * 2 + rand() * 0.22;
-      pos.set(cx, crownY, cz);
-      scl.setScalar(scale * (0.85 + rand() * 0.35));
-      q.setFromEuler(new THREE.Euler(0, -around, 0.18 + rand() * 0.55));
+      const age = k / (fronds - 1);           // 0 newest, 1 dying
+      const around = spin + (k / fronds) * Math.PI * 2 * 1.3 + rand() * 0.22;
+      // New fronds point up; old ones fall past horizontal.
+      const tilt = 0.75 - age * 1.5 + (rand() - 0.5) * 0.18;
+
+      pos.set(cx, crownY - age * 0.5 * scale, cz);
+      scl.setScalar(scale * (0.72 + (1 - age) * 0.45));
+      q.setFromEuler(new THREE.Euler(0, -around, tilt));
       m.compose(pos, q, scl);
       flora.palmFronds.setMatrixAt(f, m);
-      const g2 = 0.24 + rand() * 0.18;
-      write(flora.palmFronds, f, [g2 * 0.40, g2 * 1.55, g2 * 0.34], rand() * 6.28, 0.02);
+
+      let tint;
+      if (age > 0.82) {
+        // Dead: straw brown, and it no longer moves in the wind.
+        const b = 0.34 + rand() * 0.16;
+        tint = [b * 1.5, b * 1.05, b * 0.5];
+      } else {
+        // Young growth is yellower and lighter, mature is deep and cooler.
+        const lum = 0.34 - age * 0.13 + rand() * 0.05;
+        tint = [lum * (0.62 - age * 0.24), lum * 1.5, lum * (0.30 + age * 0.08)];
+      }
+      write(flora.palmFronds, f, tint, rand() * 6.28, age > 0.82 ? 0.004 : 0.02);
       f++;
     }
     p++;
@@ -158,8 +190,9 @@ export function populateFlora(flora, cfg, rand) {
       q.setFromEuler(new THREE.Euler(0, -around, 0.3 + rand() * 0.5));
       m.compose(pos, q, scl);
       flora.pandanusBlades.setMatrixAt(pb, m);
-      const g3 = 0.22 + rand() * 0.14;
-      write(flora.pandanusBlades, pb, [g3 * 0.48, g3 * 1.45, g3 * 0.42], rand() * 6.28, 0.012);
+      // Light green, and cooler than the coconut behind it.
+      const g3 = 0.30 + rand() * 0.13;
+      write(flora.pandanusBlades, pb, [g3 * 0.66, g3 * 1.34, g3 * 0.62], rand() * 6.28, 0.012);
       pb++;
     }
     pd++;
@@ -182,8 +215,18 @@ export function populateFlora(flora, cfg, rand) {
     q.setFromAxisAngle(up, rand() * Math.PI * 2);
     m.compose(pos, q, scl);
     flora.shrubs.setMatrixAt(sh, m);
-    const g4 = 0.2 + rand() * 0.16;
-    write(flora.shrubs, sh, [g4 * 0.52, g4 * 1.6, g4 * 0.44], rand() * 6.28, 0.014);
+    // Two species share this band, and they look nothing alike.
+    let tint;
+    if (rand() < 0.34) {
+      // Tournefortia argentea — silvery, almost grey-green.
+      const v = 0.42 + rand() * 0.14;
+      tint = [v * 1.02, v * 1.12, v * 0.92];
+    } else {
+      // Scaevola taccada — glossy, bright, saturated.
+      const v = 0.24 + rand() * 0.15;
+      tint = [v * 0.50, v * 1.66, v * 0.46];
+    }
+    write(flora.shrubs, sh, tint, rand() * 6.28, 0.014);
     sh++;
   }
   flush(flora.shrubs, sh);
@@ -201,8 +244,9 @@ export function populateFlora(flora, cfg, rand) {
     q.setFromAxisAngle(up, rand() * Math.PI * 2);
     m.compose(pos, q, scl);
     flora.grass.setMatrixAt(gr, m);
-    const g5 = 0.24 + rand() * 0.2;
-    write(flora.grass, gr, [g5 * 0.66, g5 * 1.58, g5 * 0.38], rand() * 6.28, 0.05);
+    // Sun-dried and yellower than anything in the shade of the grove.
+    const g5 = 0.30 + rand() * 0.2;
+    write(flora.grass, gr, [g5 * 1.02, g5 * 1.32, g5 * 0.36], rand() * 6.28, 0.05);
     gr++;
   }
   flush(flora.grass, gr);
