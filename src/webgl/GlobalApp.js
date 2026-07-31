@@ -4,6 +4,8 @@ import { Atmosphere } from './Atmosphere.js';
 import { IslandScene } from './IslandScene.js';
 import { SECTIONS } from '../config/sections.js';
 import { sampleJourney } from './journeys.js';
+import { Post } from './Post.js';
+import { SkyEnv } from './SkyEnv.js';
 
 /**
  * The engine. Owns the renderer, the camera and the frame loop, and knows
@@ -85,6 +87,14 @@ class App {
 
     this.world = new IslandScene();
 
+    // Capture the sky into a cube map the water can reflect, and put the
+    // frame through bloom on the way out.
+    this.skyEnv = new SkyEnv(this.renderer, this.world.skyGeometry, this.world.skyMaterial);
+    this.world.shared.uEnvMap.value = this.skyEnv.texture;
+    this.world.shared.uHasEnv.value = 1;
+
+    this.post = new Post(this.renderer, this.world.scene, this.camera);
+
     this.ready = true;
     this.resize(this.viewportInfo());
   }
@@ -106,6 +116,7 @@ class App {
 
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(width, height, false);
+    this.post?.setSize(width, height, dpr);
 
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
@@ -222,7 +233,11 @@ class App {
     // disturbance in its shadow are always the same event.
     this.#updateStir(u, px, py);
 
-    this.renderer.render(this.world.scene, this.camera);
+    // The sky capture has to happen before the frame that reflects it, and
+    // outside the composer — it renders to its own target.
+    this.skyEnv.update();
+
+    this.post.render();
   }
 
   /**

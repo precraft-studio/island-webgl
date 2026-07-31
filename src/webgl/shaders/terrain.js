@@ -172,8 +172,8 @@ void main() {
   float dist = length(uCameraPos - vWorldPos);
 
   // Submerged parts of the island belong to the water, not the air.
-  float wet = max(uUnderwater, smoothstep(0.6, -1.2, vWorldPos.y));
-  color = underwaterMedium(color, dist, deepWater(uWaterColor), wet);
+  float submerged = max(uUnderwater, smoothstep(0.6, -1.2, vWorldPos.y));
+  color = underwaterMedium(color, dist, deepWater(uWaterColor), submerged);
 
   float fog = smoothstep(uFogNear, uFogFar, dist);
   color = mix(color, uFogColor, fog * (1.0 - uUnderwater));

@@ -74,6 +74,8 @@ export class IslandScene {
       uCoverage: { value: 0.5 },
       uStir: { value: new THREE.Vector2() },
       uStirWorld: { value: new THREE.Vector2() },
+      uEnvMap: { value: null },
+      uHasEnv: { value: 0 },
       uUnderwater: { value: 0 },
       uFogNear: { value: 110 },
       uFogFar: { value: 380 },
@@ -171,6 +173,8 @@ export class IslandScene {
         uWaterColor: this.shared.uWaterColor,
       },
     });
+    this.skyGeometry = geo;
+    this.skyMaterial = mat;
     this.sky = new THREE.Mesh(geo, mat);
     this.sky.frustumCulled = false;
     this.scene.add(this.sky);
@@ -245,6 +249,8 @@ export class IslandScene {
         uCoverage: this.shared.uCoverage,
         uStir: this.shared.uStir,
         uUnderwater: this.shared.uUnderwater,
+        uEnvMap: this.shared.uEnvMap,
+        uHasEnv: this.shared.uHasEnv,
       },
       // Visible from below once the camera dives through it.
       side: THREE.DoubleSide,

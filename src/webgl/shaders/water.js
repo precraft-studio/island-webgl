@@ -86,6 +86,8 @@ uniform float uFogFar;
 uniform float uCoverage;
 uniform vec2 uStir;
 uniform float uUnderwater;
+uniform samplerCube uEnvMap;
+uniform float uHasEnv;
 
 varying vec3 vWorldPos;
 varying vec3 vNormal;
@@ -165,6 +167,11 @@ float ggxSpec(vec3 N, vec3 V, vec3 L, float rough) {
  * surface can never throw it back.
  */
 vec3 skySample(vec3 dir, vec3 sun) {
+  // The real sky, captured into a cube map — clouds, sun and all. This is why
+  // the deck overhead now appears in the water instead of only above it.
+  if (uHasEnv > 0.5) return textureCube(uEnvMap, dir).rgb;
+
+  // Fallback until the first capture lands.
   float h = clamp(dir.y * 0.5 + 0.5, 0.0, 1.0);
   vec3 col = mix(uSkyBottom, uSkyTop, pow(h, 0.85));
   float d = max(dot(dir, sun), 0.0);
