@@ -37,6 +37,23 @@ const CORAL_COLOURS = [
   [0.62, 0.36, 0.58], // purple fan
 ];
 
+/**
+ * Fluorescent emission colours, from what fluo-diving actually looks like.
+ *
+ * GFP-family proteins emit in narrow bands, so the palette is small and very
+ * saturated — electric green is by far the most common, then orange and red,
+ * with cyan rarer. Desaturating these to make them "tasteful" is the one way
+ * to get this effect wrong: the real thing looks like neon in black water.
+ */
+const FLUOR_COLOURS = [
+  [0.10, 1.00, 0.30],  // GFP green — the signature one
+  [0.10, 1.00, 0.30],
+  [1.00, 0.42, 0.06],  // orange
+  [1.00, 0.10, 0.28],  // red / magenta
+  [0.15, 0.85, 1.00],  // cyan
+  [0.72, 1.00, 0.08],  // yellow-green
+];
+
 const FISH_COLOURS = [
   [0.95, 0.78, 0.32],
   [0.88, 0.52, 0.28],
@@ -155,6 +172,10 @@ export class Seabed {
         'aPhase',
         new THREE.InstancedBufferAttribute(new Float32Array(MAX.coral), 1)
       );
+      m.geometry.setAttribute(
+        'aFluor',
+        new THREE.InstancedBufferAttribute(new Float32Array(MAX.coral * 3), 3)
+      );
     }
   }
 
@@ -188,6 +209,10 @@ export class Seabed {
     this.fish.geometry.setAttribute(
       'aPhase',
       new THREE.InstancedBufferAttribute(new Float32Array(MAX.fish), 1)
+    );
+    this.fish.geometry.setAttribute(
+      'aFluor',
+      new THREE.InstancedBufferAttribute(new Float32Array(MAX.fish * 3), 3)
     );
     this.group.add(this.fish);
   }
@@ -223,6 +248,10 @@ export class Seabed {
     this.resting.geometry.setAttribute(
       'aPhase',
       new THREE.InstancedBufferAttribute(new Float32Array(MAX.resting), 1)
+    );
+    this.resting.geometry.setAttribute(
+      'aFluor',
+      new THREE.InstancedBufferAttribute(new Float32Array(MAX.resting * 3), 3)
     );
     this.group.add(this.resting);
   }
@@ -274,6 +303,7 @@ export class Seabed {
     for (const mesh of this.coral) {
       const tint = mesh.geometry.getAttribute('aTint');
       const phase = mesh.geometry.getAttribute('aPhase');
+      const fluor = mesh.geometry.getAttribute('aFluor');
       let n = 0;
       let guard = 0;
       while (n < perType && guard++ < perType * 40) {
@@ -296,12 +326,24 @@ export class Seabed {
         const c = CORAL_COLOURS[(rand() * CORAL_COLOURS.length) | 0];
         tint.setXYZ(n, c[0], c[1], c[2]);
         phase.setX(n, rand() * Math.PI * 2);
+
+        // Fluorescence runs in stands, not sprinkled evenly: real reefs have
+        // patches that light up and patches that stay dark.
+        const glows = rand() < (cfg.fluorescent ?? 0);
+        if (glows) {
+          const f = FLUOR_COLOURS[(rand() * FLUOR_COLOURS.length) | 0];
+          const strength = 0.5 + rand() * 0.75;
+          fluor.setXYZ(n, f[0] * strength, f[1] * strength, f[2] * strength);
+        } else {
+          fluor.setXYZ(n, 0, 0, 0);
+        }
         n++;
       }
       mesh.count = n;
       mesh.instanceMatrix.needsUpdate = true;
       tint.needsUpdate = true;
       phase.needsUpdate = true;
+      fluor.needsUpdate = true;
     }
 
     // --- Fish, organised into schools that drift as a body --------------

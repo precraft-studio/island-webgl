@@ -56,6 +56,16 @@ const STOPS = [
     intensity: 0.6,
   },
   {
+    at: 0.88, // night — moonlight, and the only stop dark enough for the reef
+    sunColor: '#9db4d8',   // the moon stands in for the sun
+    skyTop: '#070d1e',
+    skyBottom: '#101c36',
+    fog: '#0d1730',
+    ambient: '#18233c',
+    water: '#0a1a2e',
+    intensity: 0.16,
+  },
+  {
     at: 1.0, // back to dawn (loop)
     sunColor: '#ffb27a',
     skyTop: '#2a4a7a',

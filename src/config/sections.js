@@ -17,7 +17,7 @@ export const SECTIONS = [
     // Scroll leaves the air and keeps going: surface, then reef floor.
     // Midday sun (below) is what makes this dive the bright one.
     journey: 'dive',
-    life: { coral: 110, schools: 5, resting: 0, godrays: 1.0 },
+    life: { coral: 110, schools: 5, resting: 0, godrays: 1.0, fluorescent: 0 },
     clouds: 0.42,
     sun: 0.3,
     nav: 'The Island',
@@ -114,9 +114,10 @@ export const SECTIONS = [
     // The only section that keeps going past the surface. Scroll here does not
     // stop at sea level — it crosses it and descends to the seabed.
     journey: 'dive',
-    life: { coral: 55, schools: 1, resting: 3, godrays: 0.35 },
+    // A night reef: sparse, dark, and roughly half of it fluorescing.
+    life: { coral: 95, schools: 1, resting: 3, godrays: 0.35, fluorescent: 0.5 },
     clouds: 0.78,
-    sun: 0.8,
+    sun: 0.88,
     nav: 'The Horizon',
     title: 'Everything past the reef',
     tagline: 'Open water · Weather',

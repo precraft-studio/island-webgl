@@ -108,12 +108,15 @@ void main() {
 export const REEF_VERT = /* glsl */ `
 attribute vec3 aTint;
 attribute float aPhase;
+attribute vec3 aFluor;
 
 uniform float uTime;
 
 varying vec3 vWorldPos;
 varying vec3 vNormal;
 varying vec3 vTint;
+varying vec3 vFluor;
+varying float vPhase;
 
 void main() {
   vec3 p = position;
@@ -128,6 +131,8 @@ void main() {
   vWorldPos = wp.xyz;
   vNormal = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);
   vTint = aTint;
+  vFluor = aFluor;
+  vPhase = aPhase;
   gl_Position = projectionMatrix * viewMatrix * wp;
 }
 `;
@@ -142,6 +147,8 @@ ${SEABED_LIGHT}
 varying vec3 vWorldPos;
 varying vec3 vNormal;
 varying vec3 vTint;
+varying vec3 vFluor;
+varying float vPhase;
 
 void main() {
   vec3 N = normalize(vNormal);
@@ -161,7 +168,31 @@ void main() {
   float rim = pow(1.0 - max(dot(N, V), 0.0), 2.6);
   color += mix(uWaterColor, vTint, 0.4) * rim * 0.55 * (0.4 + uIntensity * 0.6);
 
+  // --- Fluorescence ---------------------------------------------------
+  // Corals carry GFP-family proteins that absorb blue and ultraviolet light
+  // and re-emit it at longer wavelengths. This is emission, not reflection:
+  // it does not depend on the sun's angle, and it is the reason a night reef
+  // can be vivid rather than merely dark.
+  //
+  // Gated on darkness because that is literally why you cannot see it by day —
+  // daylight drowns it. Which conveniently means the midday reef stays a
+  // daylight reef and only the dusk one lights up, from the same code.
+  // Gated on how much light there is, not on the sun's angle: what hides
+  // fluorescence is daylight drowning it, and intensity says that directly.
+  float night = 1.0 - smoothstep(0.18, 0.55, uIntensity);
+  if (night > 0.001) {
+    // Slow, uneven breathing so a stand of coral is not one flat panel.
+    float pulse = 0.82 + 0.18 * sin(uTime * 0.55 + vPhase * 2.3);
+    // Brighter where the surface faces the eye, as the emitting tissue is
+    // thickest through the line of sight.
+    float face = 0.55 + 0.45 * max(dot(N, V), 0.0);
+    color += vFluor * night * pulse * face * 1.35;
+  }
+
   float dist = length(uCameraPos - vWorldPos);
+  // The glow travels through water like any other light, so red fluorescence
+  // dies with distance while green carries — which is exactly what a fluo dive
+  // looks like.
   color = underwaterMedium(color, dist, deepWater(uWaterColor), max(uUnderwater, 0.85));
 
   gl_FragColor = vec4(color, 1.0);
