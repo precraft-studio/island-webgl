@@ -1,0 +1,17 @@
+{
+  "name": "island-webgl",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Phase 0 technical prototype — island WebGL scroll experience (Astro + Three.js + GSAP)",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "astro": "^5.1.1",
+    "gsap": "^3.12.5",
+    "three": "^0.169.0"
+  }
+}

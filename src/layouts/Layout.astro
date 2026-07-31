@@ -1,0 +1,82 @@
+---
+import { ClientRouter } from 'astro:transitions';
+import '../styles/global.css';
+
+interface Props { title?: string }
+const { title = 'Island — Phase 0' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content="Phase 0 technical prototype — island WebGL scroll experience." />
+    <title>{title}</title>
+    <!-- View Transitions. Paired with transition:persist below, this is what
+         lets us navigate without tearing down the WebGL context. -->
+    <ClientRouter />
+  </head>
+
+  <body>
+    <div class="loader" transition:persist="loader"><span>Loading</span></div>
+
+    <!-- transition:persist keeps this exact DOM node (and its live WebGL
+         context) across navigations — the single most important line here. -->
+    <div id="canvas-wrapper" transition:persist="webgl" aria-hidden="true">
+      <canvas data-engine="three.js"></canvas>
+    </div>
+
+    <div class="cursor-ring" transition:persist="cursor-ring" aria-hidden="true"></div>
+    <div class="cursor-dot" transition:persist="cursor-dot" aria-hidden="true"></div>
+
+    <header class="site-head">
+      <a href="/">Island</a>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/about">About</a>
+      </nav>
+    </header>
+
+    <main class="page"><slot /></main>
+
+    <script>
+      import { GlobalApp, state, EVENTS } from '../webgl/GlobalApp.js';
+      import { initCursor } from '../scripts/cursor.js';
+      import { initDrag } from '../scripts/drag.js';
+      import { initScroll } from '../scripts/scroll.js';
+      import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+      let booted = false;
+
+      async function boot() {
+        const wrapper = document.querySelector('#canvas-wrapper');
+        const canvas = wrapper?.querySelector('canvas');
+        if (!wrapper || !canvas) return;
+
+        // One-time: engine, cursor, resize. These survive navigation because
+        // their DOM nodes are persisted.
+        if (!booted) {
+          await GlobalApp.init(wrapper, canvas);
+          state.emit(EVENTS.ATTACH);
+          state.emit(EVENTS.RESIZE, GlobalApp.viewportInfo());
+          window.addEventListener('resize', () =>
+            state.emit(EVENTS.RESIZE, GlobalApp.viewportInfo())
+          );
+          initCursor();
+          booted = true;
+        }
+
+        // Per-page: scroll triggers and the drag zone belong to the markup
+        // that just swapped in, so they are rebuilt every navigation.
+        ScrollTrigger.getAll().forEach((t) => t.kill());
+        initDrag();
+        initScroll();
+
+        requestAnimationFrame(() => document.body.classList.add('loaded'));
+      }
+
+      document.addEventListener('astro:page-load', boot);
+    </script>
+  </body>
+</html>

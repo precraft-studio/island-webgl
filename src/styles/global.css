@@ -1,0 +1,205 @@
+/* ------------------------------------------------------------------ *
+ * Phase 0 shell. Deliberately restrained — the 3D scene supplies the
+ * colour, so the UI stays near-neutral and leans on type and spacing.
+ * ------------------------------------------------------------------ */
+
+:root {
+  --ink: #f4f1ea;
+  --ink-dim: rgba(244, 241, 234, 0.66);
+  --shadow: 0 2px 30px rgba(6, 20, 30, 0.45);
+  --gutter: clamp(1.5rem, 5vw, 5rem);
+  --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  --font-ui: ui-sans-serif, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #0a1a26;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+body { overflow-x: hidden; }
+
+/* Hide the native cursor only once ours is actually tracking. */
+body.cursor-active,
+body.cursor-active a,
+body.cursor-active [data-cursor] { cursor: none; }
+
+/* --- WebGL canvas -------------------------------------------------- */
+#canvas-wrapper {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  /* iOS: a tap on the canvas must not flash the grey highlight box. */
+  -webkit-tap-highlight-color: transparent;
+}
+#canvas-wrapper canvas { display: block; width: 100%; height: 100%; }
+
+/* --- Loader -------------------------------------------------------- */
+.loader {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: #0a1a26;
+  transition: opacity 0.9s ease, visibility 0.9s;
+}
+body.loaded .loader { opacity: 0; visibility: hidden; }
+.loader span {
+  font-family: var(--font-display);
+  font-style: italic;
+  letter-spacing: 0.16em;
+  font-size: 0.95rem;
+  color: var(--ink-dim);
+}
+
+/* --- Custom cursor ------------------------------------------------- */
+.cursor-ring, .cursor-dot {
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 90;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+  mix-blend-mode: difference;
+  will-change: transform;
+}
+body.cursor-active .cursor-ring,
+body.cursor-active .cursor-dot { opacity: 1; }
+
+.cursor-ring {
+  width: 34px; height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 50%;
+  transition: width 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
+              height 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
+              opacity 0.3s, background-color 0.3s;
+}
+.cursor-dot {
+  width: 4px; height: 4px;
+  background: #fff;
+  border-radius: 50%;
+}
+.cursor-ring[data-state='draggable'] { width: 74px; height: 74px; }
+.cursor-ring.is-down { width: 54px; height: 54px; background: rgba(255, 255, 255, 0.14); }
+
+/* --- Layout -------------------------------------------------------- */
+.page { position: relative; z-index: 1; }
+
+.site-head {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.6rem var(--gutter);
+  mix-blend-mode: difference;
+}
+.site-head a {
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 0.78rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.site-head nav { display: flex; gap: 1.6rem; }
+
+/* --- Hero (the drag surface) --------------------------------------- */
+.hero {
+  position: relative;
+  height: 100svh;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 0 var(--gutter);
+  /* Vertical stays with the page; horizontal belongs to the drag handler. */
+  touch-action: pan-y;
+  /* Without this, dragging the scene selects the headline text. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+.hero h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(2.6rem, 8vw, 6.4rem);
+  line-height: 0.98;
+  margin: 0;
+  text-shadow: var(--shadow);
+}
+.hero h1 em { font-style: italic; }
+.hero p {
+  margin: 1.4rem 0 0;
+  font-size: 0.82rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.hero-hint {
+  position: absolute;
+  bottom: 2.4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  display: flex;
+  gap: 1.4rem;
+}
+/* Readout proves the CSS var is live — remove once the drag is signed off. */
+.hero-hint b { font-weight: 400; font-variant-numeric: tabular-nums; }
+
+/* --- Chapters ------------------------------------------------------ */
+.chapter {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  padding: 12vh var(--gutter);
+}
+.chapter:nth-child(even) { justify-content: flex-end; }
+
+.panel {
+  max-width: 30rem;
+  background: rgba(9, 24, 34, 0.42);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 2px;
+  padding: 2.4rem;
+}
+.panel h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.7rem, 3.4vw, 2.6rem);
+  line-height: 1.1;
+  margin: 0 0 1rem;
+}
+.panel p { margin: 0 0 1rem; line-height: 1.68; color: var(--ink-dim); font-size: 0.98rem; }
+.panel .eyebrow {
+  font-size: 0.68rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 1.2rem;
+}
+
+.foot {
+  padding: 6rem var(--gutter);
+  text-align: center;
+  color: var(--ink-dim);
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
