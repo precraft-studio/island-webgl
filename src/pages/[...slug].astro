@@ -23,9 +23,13 @@ const { section, index } = Astro.props;
         <h1 data-reveal data-parallax="1.6">{section.title}</h1>
       </div>
 
+      <!-- "Drag" is wrong on a phone and "swipe" is wrong on a desktop, so both
+           ship and a pointer media query picks one. Doing it in CSS rather than
+           from JS keeps it correct on a touch laptop, where feature detection
+           has to guess and this simply follows the primary input. -->
       <div class="hero-hint">
-        <span>Drag to turn</span>
-        <span><b data-slide-readout>{section.nav}</b></span>
+        <span><i class="on-fine">Drag</i><i class="on-coarse">Swipe</i> to turn</span>
+        <span class="hint-readout"><b data-slide-readout>{section.nav}</b></span>
         <span>Scroll for more</span>
       </div>
     </section>

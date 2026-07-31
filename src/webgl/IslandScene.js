@@ -24,7 +24,11 @@ BLANK_TEXTURE.needsUpdate = true;
  * Drop an aerial photo here and the terrain switches from procedural colour to
  * the photograph — no code change required. See public/textures/README.md.
  */
-export const PHOTO_URL = '/textures/island-aerial.webp';
+// Base-relative: on GitHub Pages the site is mounted under a subdirectory, and
+// a root-absolute path here would 404. The loader falls back to the procedural
+// albedo either way, so this would have failed quietly rather than loudly.
+export const PHOTO_URL =
+  `${(import.meta.env?.BASE_URL || '/').replace(/\/+$/, '')}/textures/island-aerial.webp`;
 
 const smoothstep = (edge0, edge1, x) => {
   const t = THREE.MathUtils.clamp((x - edge0) / (edge1 - edge0), 0, 1);

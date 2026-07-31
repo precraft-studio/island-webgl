@@ -137,15 +137,25 @@ export const SECTIONS = [
   },
 ];
 
+/**
+ * Where the site is mounted: '' when served from a domain root, '/island-webgl'
+ * on GitHub Pages. Astro rewrites the URLs it generates itself, but the drag
+ * carousel routes from JS, so these two helpers have to apply it by hand — miss
+ * it and every swipe navigates to a 404 while the local build works fine.
+ */
+const BASE = (import.meta.env?.BASE_URL || '/').replace(/\/+$/, '');
+
 /** Route path for a section index. */
 export const pathFor = (i) => {
   const s = SECTIONS[((i % SECTIONS.length) + SECTIONS.length) % SECTIONS.length];
-  return s.slug ? `/${s.slug}/` : '/';
+  return s.slug ? `${BASE}/${s.slug}/` : `${BASE}/`;
 };
 
 /** Section index for a pathname, or 0 when it is not a section route. */
 export const indexForPath = (pathname) => {
-  const clean = pathname.replace(/^\/|\/$/g, '');
+  let p = pathname;
+  if (BASE && p.startsWith(BASE)) p = p.slice(BASE.length);
+  const clean = p.replace(/^\/|\/$/g, '');
   const i = SECTIONS.findIndex((s) => s.slug === clean);
   return i === -1 ? 0 : i;
 };

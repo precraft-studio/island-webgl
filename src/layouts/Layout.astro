@@ -31,7 +31,7 @@ const { title = 'Island — Phase 0' } = Astro.props;
     <div class="cursor-ring" transition:persist="cursor-ring" aria-hidden="true"></div>
 
     <header class="site-head">
-      <a class="wordmark" href="/">Island</a>
+      <a class="wordmark" href={import.meta.env.BASE_URL}>Island</a>
       <SectionNav />
     </header>
 
@@ -76,9 +76,18 @@ const { title = 'Island — Phase 0' } = Astro.props;
           await GlobalApp.init(wrapper, canvas);
           state.emit(EVENTS.ATTACH);
           state.emit(EVENTS.RESIZE, GlobalApp.viewportInfo());
-          window.addEventListener('resize', () =>
-            state.emit(EVENTS.RESIZE, GlobalApp.viewportInfo())
-          );
+
+          // The wrapper is fixed inset:0, so it IS the visible area — watching
+          // it catches every way that area can change, including the two the
+          // window resize event handles badly on iOS: rotation, which fires
+          // late enough to paint one frame at the old aspect, and the URL bar
+          // collapsing on first scroll, which changes the height without
+          // reliably firing at all. resize() ignores a repeat of the size it
+          // already has, so keeping the window listener as well costs nothing.
+          const onResize = () => state.emit(EVENTS.RESIZE, GlobalApp.viewportInfo());
+          new ResizeObserver(onResize).observe(wrapper);
+          window.addEventListener('resize', onResize);
+          window.addEventListener('orientationchange', onResize);
           initCursor();
           booted = true;
         }

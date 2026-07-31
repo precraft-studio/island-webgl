@@ -16,6 +16,20 @@ const PX_PER_SECTION = 200;
  */
 const MAX_STEP_PX = 90;
 
+/**
+ * Travel before the drag starts — and, because lockAxis decides the axis from
+ * that first sample, before the direction is committed.
+ *
+ * A mouse can afford 2px: it is precise, and anything larger reads as slack in
+ * the control. A finger cannot. A vertical swipe on a phone almost always has a
+ * few pixels of sideways drift in it, so deciding at 2px locks a good share of
+ * intended scrolls to the x axis and turns the carousel instead. 12px is the
+ * usual touch slop and is still well under the distance a deliberate horizontal
+ * swipe covers before it feels like it has begun.
+ */
+const dragMinimum = () =>
+  window.matchMedia?.('(pointer: coarse)').matches ? 12 : 2;
+
 const LAST = SECTIONS.length - 1;
 const clamp = (v) => Math.max(0, Math.min(LAST, v));
 
@@ -45,7 +59,7 @@ export function initDrag() {
   observer = Observer.create({
     target: zone,
     type: 'pointer,touch',
-    dragMinimum: 2,
+    dragMinimum: dragMinimum(),
     lockAxis: true,
     onPress: () => zone.setAttribute('data-cursor-state', 'dragging'),
     onRelease: () => zone.removeAttribute('data-cursor-state'),
@@ -85,8 +99,13 @@ function settle(zone) {
   index = snapped;
   publish(zone, snapped);
 
+  // Trailing slash stripped on both sides: the base-mounted home page reports
+  // as `/island-webgl` while pathFor builds `/island-webgl/`, so a literal
+  // comparison would treat a drag that snaps back to where it started as a
+  // route change and navigate to the page already on screen.
   const path = pathFor(snapped);
-  if (path !== location.pathname) navigate(path);
+  const same = (a, b) => a.replace(/\/+$/, '') === b.replace(/\/+$/, '');
+  if (!same(path, location.pathname)) navigate(path);
 }
 
 function publish(zone, value) {

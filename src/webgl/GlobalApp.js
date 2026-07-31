@@ -106,18 +106,46 @@ class App {
   }
 
   viewportInfo() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    /**
+     * Two caps, because a device ratio alone does not bound the work.
+     *
+     * The scene is fragment-bound — clouds, water, the underwater medium and
+     * caustics are all evaluated per pixel — so cost tracks the drawing buffer,
+     * not the CSS size. A 3x phone would shade ~2.25x the pixels for no visible
+     * gain, hence the ratio cap; but a large tablet at only 2x already exceeds
+     * what a mobile GPU can shade at this cost, and the ratio cap says nothing
+     * about that. So a pixel budget rides alongside it.
+     *
+     * The budget applies to coarse pointers only. Desktop framing is signed off
+     * as it stands and a budget there would quietly soften a 4K display to fix
+     * a problem it does not have.
+     */
+    const coarse = window.matchMedia?.('(pointer: coarse)').matches;
+    const byBudget = coarse
+      ? Math.sqrt(1.8e6 / Math.max(width * height, 1))
+      : Infinity;
+
     return {
-      width: window.innerWidth,
-      height: window.innerHeight,
-      // Mobile runs the full 3D scene (no 2D fallback), so cap DPR at 2 —
-      // a 3x phone would otherwise shade ~2.25x the pixels for no visible gain.
-      dpr: Math.min(window.devicePixelRatio || 1, 2),
+      width,
+      height,
+      dpr: Math.max(1, Math.min(window.devicePixelRatio || 1, 2, byBudget)),
     };
   }
 
   resize(info = this.viewportInfo()) {
     if (!this.ready) return;
     const { width, height, dpr } = info;
+
+    // Several sources report the same size (a ResizeObserver, the window resize
+    // event, orientationchange). Acting on each would reallocate the composer's
+    // render targets two or three times per rotation, which is a visible hitch
+    // for no change at all.
+    const s = this.sizes;
+    if (s && s.width === width && s.height === height && s.dpr === dpr) return;
+
     this.sizes = { width, height, dpr };
 
     this.renderer.setPixelRatio(dpr);
@@ -125,6 +153,33 @@ class App {
     this.post?.setSize(width, height, dpr);
 
     this.camera.aspect = width / height;
+
+    /**
+     * Framing is held HORIZONTALLY, not vertically.
+     *
+     * A perspective camera's `fov` is the vertical angle, so a fixed value
+     * means the horizontal view narrows with the aspect ratio. The journeys
+     * here were tuned on a landscape window; on a phone held upright the same
+     * fov leaves the island a small object in the middle of a tall frame —
+     * every camera distance in journeys.js would be wrong at once.
+     *
+     * So the vertical angle is derived from the horizontal one instead: the
+     * subject keeps its width whatever the shape of the window. Capped, since
+     * on a very narrow screen the exact solution reaches fisheye.
+     */
+    // The aspect the journeys were actually framed against. Setting this to a
+    // wider "typical desktop" figure silently re-frames every shot that was
+    // already tuned — the compensation must start from the shape the camera
+    // distances were chosen at, and only ever widen from there.
+    const DESIGN_ASPECT = 1.05;
+    const DESIGN_FOV = 42;
+    const half = THREE.MathUtils.degToRad(DESIGN_FOV) / 2;
+    const horizontal = 2 * Math.atan(Math.tan(half) * DESIGN_ASPECT);
+    const vertical = 2 * Math.atan(Math.tan(horizontal / 2) / Math.max(this.camera.aspect, 0.01));
+
+    this.camera.fov = THREE.MathUtils.clamp(
+      THREE.MathUtils.radToDeg(vertical), DESIGN_FOV, 78
+    );
     this.camera.updateProjectionMatrix();
   }
 

@@ -1,7 +1,16 @@
 ---
 import { SECTIONS, pathFor } from '../config/sections.js';
 
-const current = Astro.url.pathname;
+/*
+ * Compare paths with the trailing slash stripped.
+ *
+ * The home route is where these disagree: pathFor() builds it with a trailing
+ * slash, but Astro reports the base-mounted index as `/island-webgl` without
+ * one, so a literal comparison leaves the first section with no underline —
+ * and only on the page where it matters most, since that is the landing page.
+ */
+const trim = (p) => p.replace(/\/+$/, '') || '/';
+const current = trim(Astro.url.pathname);
 ---
 
 <!-- The five detents. Clicking is the accessible equivalent of dragging to a
@@ -11,8 +20,8 @@ const current = Astro.url.pathname;
     SECTIONS.map((s, i) => (
       <a
         href={pathFor(i)}
-        class:list={['section-link', { 'is-current': pathFor(i) === current }]}
-        aria-current={pathFor(i) === current ? 'page' : undefined}
+        class:list={['section-link', { 'is-current': trim(pathFor(i)) === current }]}
+        aria-current={trim(pathFor(i)) === current ? 'page' : undefined}
       >
         {s.nav}
       </a>

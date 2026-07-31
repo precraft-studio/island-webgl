@@ -99,7 +99,10 @@ body.cursor-active .cursor-ring { opacity: 1; }
   gap: 0.6rem 1.5rem;
   justify-content: space-between;
   align-items: center;
-  padding: 1.3rem var(--gutter);
+  /* viewport-fit=cover puts the page under the notch and the rounded corners,
+     so every fixed edge has to add the inset back or it lands underneath. */
+  padding: calc(1.3rem + env(safe-area-inset-top)) calc(var(--gutter) + env(safe-area-inset-right))
+           1.3rem calc(var(--gutter) + env(safe-area-inset-left));
   mix-blend-mode: difference;
 }
 .wordmark { flex: none; font-weight: 600; }
@@ -194,9 +197,50 @@ body.cursor-active .cursor-ring { opacity: 1; }
 .chapter-link:hover .chapter-label { opacity: 0.8; transform: none; }
 
 @media (max-width: 767px) {
+  /* Hover-reveal labels have no equivalent on touch, and the rail sits exactly
+     where a thumb rests. The section nav already covers the same ground. */
   .chapters-nav { display: none; }
-  /* Wrap rather than scroll — a scrollbar under the nav reads as a bug. */
-  .section-nav { justify-content: flex-start; width: 100%; }
+
+  /* Wrap rather than scroll — a scrollbar under the nav reads as a bug. Five
+     labels take two lines at this width; tightening the tracking is what keeps
+     it to two rather than three. */
+  .section-nav {
+    justify-content: flex-start;
+    width: 100%;
+    gap: 0.35rem 1.1rem;
+  }
+  .section-link { letter-spacing: 0.08em; font-size: 0.6rem; }
+
+  /* Three labels do not fit across 375px at any tracking that is still legible.
+     The middle one goes: it names the current section, which the headline
+     directly above it and the underlined nav item already both say. */
+  .hint-readout { display: none; }
+  .hero-hint {
+    font-size: 0.58rem;
+    letter-spacing: 0.16em;
+    gap: 1.1rem;
+    bottom: calc(1.6rem + env(safe-area-inset-bottom));
+  }
+
+  /* The head now takes two rows, so the copy has to clear it. */
+  .hero-copy { padding-top: 3.5rem; }
+
+  .panel { padding: 1.6rem 1.4rem; }
+  .chapter { padding: 10vh var(--gutter); }
+  .foot { padding: 4rem var(--gutter) calc(4rem + env(safe-area-inset-bottom)); }
+}
+
+/*
+ * Phone held sideways: ~375px of height for a 100svh hero. The headline at its
+ * clamp floor plus the tagline plus the hint is taller than that, and the hint
+ * ends up printed over the type.
+ */
+@media (max-height: 500px) and (orientation: landscape) {
+  .hero h1 { font-size: clamp(1.8rem, 6vh, 3rem); }
+  .hero-tagline { margin-bottom: 0.6rem; font-size: 0.6rem; }
+  .hero-hint { bottom: calc(0.9rem + env(safe-area-inset-bottom)); }
+  .hero-copy { padding-top: 2rem; }
+  .chapter { min-height: auto; padding: 14vh var(--gutter); }
 }
 
 /* --- Hero (the drag surface) --------------------------------------- */
@@ -224,7 +268,32 @@ body.cursor-active .cursor-ring { opacity: 1; }
 .hero h1 em { font-style: italic; }
 .hero:focus-visible { outline: 1px solid var(--ink-dim); outline-offset: -8px; }
 
-.hero-copy { max-width: min(38rem, 90vw); margin: 0 auto; }
+/*
+ * A scrim under the copy, not a shadow on it.
+ *
+ * The headline is white and it sits over water that runs from near-black at
+ * night to almost white in the noon lagoon — a text-shadow survives the first
+ * and disappears into the second. This darkens only the few hundred pixels the
+ * type actually occupies, and fades to nothing well before any edge, so it
+ * never reads as a box drawn over the scene.
+ */
+.hero-copy {
+  position: relative;
+  max-width: min(38rem, 90vw);
+  margin: 0 auto;
+}
+.hero-copy::before {
+  content: '';
+  position: absolute;
+  inset: -18% -14%;
+  z-index: -1;
+  background: radial-gradient(
+    60% 55% at 50% 50%,
+    rgba(6, 20, 30, 0.42),
+    rgba(6, 20, 30, 0) 72%
+  );
+  pointer-events: none;
+}
 .hero-tagline {
   margin: 0 0 1.2rem;
   font-size: 0.72rem;
@@ -235,7 +304,7 @@ body.cursor-active .cursor-ring { opacity: 1; }
 
 .hero-hint {
   position: absolute;
-  bottom: 2.4rem;
+  bottom: calc(2.4rem + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   font-size: 0.7rem;
@@ -244,9 +313,19 @@ body.cursor-active .cursor-ring { opacity: 1; }
   color: var(--ink-dim);
   display: flex;
   gap: 1.4rem;
+  /* Three short labels. Letting them wrap turns one line of hint into a block
+     of three stacked columns, which reads as a layout fault rather than a hint;
+     they shrink to fit instead (see the mobile block). */
+  white-space: nowrap;
 }
-/* Readout proves the CSS var is live — remove once the drag is signed off. */
+/* The readout is the live section name — it tracks the drag between detents. */
 .hero-hint b { font-weight: 400; font-variant-numeric: tabular-nums; }
+.hero-hint i { font-style: inherit; }
+.on-coarse { display: none; }
+@media (pointer: coarse) {
+  .on-fine { display: none; }
+  .on-coarse { display: inline; }
+}
 
 /* --- Chapters ------------------------------------------------------ */
 .chapter {
