@@ -77,17 +77,16 @@ body.cursor-active .cursor-dot { opacity: 1; }
   width: 34px; height: 34px;
   border: 1px solid rgba(255, 255, 255, 0.75);
   border-radius: 50%;
-  transition: width 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
-              height 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
-              opacity 0.3s, background-color 0.3s;
+  /* Size changes are a scale in the transform, not width/height — animating
+     those re-runs layout on the same thread that handles the pointer. */
+  transition: opacity 0.3s, background-color 0.3s;
 }
 .cursor-dot {
   width: 4px; height: 4px;
   background: #fff;
   border-radius: 50%;
 }
-.cursor-ring[data-state='draggable'] { width: 74px; height: 74px; }
-.cursor-ring.is-down { width: 54px; height: 54px; background: rgba(255, 255, 255, 0.14); }
+.cursor-ring.is-down { background: rgba(255, 255, 255, 0.14); }
 
 /* --- Layout -------------------------------------------------------- */
 .page { position: relative; z-index: 1; }
