@@ -4,6 +4,7 @@ import { buildHeartLUT, heartRadius, HEART_LUT_SIZE } from './heart.js';
 import { SKY_VERT, SKY_FRAG } from './shaders/sky.js';
 import { TERRAIN_VERT, TERRAIN_FRAG } from './shaders/terrain.js';
 import { WATER_VERT, WATER_FRAG } from './shaders/water.js';
+import { Seabed } from './Seabed.js';
 
 /** World-space radius of the coastline at its widest point. */
 export const ISLAND_RADIUS = 34;
@@ -70,6 +71,7 @@ export class IslandScene {
       uTime: { value: 0 },
       uCoverage: { value: 0.5 },
       uStir: { value: new THREE.Vector2() },
+      uUnderwater: { value: 0 },
       uFogNear: { value: 110 },
       uFogFar: { value: 380 },
 
@@ -83,6 +85,9 @@ export class IslandScene {
       uPhotoSize: { value: ISLAND_RADIUS * 2.35 },
       uDelight: { value: 0.6 },
     };
+
+    this.seabed = new Seabed(this.shared);
+    this.scene.add(this.seabed.group);
 
     this.#buildSky();
     this.#buildTerrain();
@@ -114,6 +119,21 @@ export class IslandScene {
     return beach * 2.3 + inland * relief * 13 - 1.35;
   }
 
+  /** Told once per frame how submerged the camera is (0 above, 1 below). */
+  setUnderwater(amount, cameraY) {
+    this.underwater = amount;
+    this.cameraY = cameraY;
+  }
+
+  /** Called on navigation: rebuild the reef population for this section. */
+  applySection(section) {
+    this.seabed.populate(section.life);
+  }
+
+  update(dt, cameraY) {
+    this.seabed.update(dt, cameraY);
+  }
+
   #buildSky() {
     const geo = new THREE.SphereGeometry(700, 32, 24);
     const mat = new THREE.ShaderMaterial({
@@ -132,6 +152,8 @@ export class IslandScene {
         uTime: this.shared.uTime,
         uCoverage: this.shared.uCoverage,
         uStir: this.shared.uStir,
+        uUnderwater: this.shared.uUnderwater,
+        uWaterColor: this.shared.uWaterColor,
       },
     });
     this.sky = new THREE.Mesh(geo, mat);
@@ -171,7 +193,12 @@ export class IslandScene {
         uTime: this.shared.uTime,
         uCoverage: this.shared.uCoverage,
         uStir: this.shared.uStir,
+        uUnderwater: this.shared.uUnderwater,
+        uWaterColor: this.shared.uWaterColor,
       },
+      // From under the surface this plane is overhead. Single-sided, it gets
+      // backface-culled and the sky shows straight through it.
+      side: THREE.DoubleSide,
     });
 
     this.terrain = new THREE.Mesh(geo, mat);
@@ -202,7 +229,10 @@ export class IslandScene {
         uHeartScale: this.shared.uHeartScale,
         uCoverage: this.shared.uCoverage,
         uStir: this.shared.uStir,
+        uUnderwater: this.shared.uUnderwater,
       },
+      // Visible from below once the camera dives through it.
+      side: THREE.DoubleSide,
     });
 
     this.water = new THREE.Mesh(geo, mat);

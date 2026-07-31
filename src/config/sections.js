@@ -14,6 +14,10 @@
 export const SECTIONS = [
   {
     slug: '',
+    // Scroll leaves the air and keeps going: surface, then reef floor.
+    // Midday sun (below) is what makes this dive the bright one.
+    journey: 'dive',
+    life: { coral: 110, schools: 5, resting: 0, godrays: 1.0 },
     clouds: 0.42,
     sun: 0.3,
     nav: 'The Island',
@@ -66,6 +70,8 @@ export const SECTIONS = [
   },
   {
     slug: 'lagoon',
+    // Drops out of the air and glides low across the water alongside a boat.
+    journey: 'sail',
     clouds: 0.22,
     sun: 0.2,
     nav: 'The Lagoon',
@@ -84,6 +90,9 @@ export const SECTIONS = [
   },
   {
     slug: 'canopy',
+    // Comes in close enough that individual palms read.
+    journey: 'island',
+    flora: { palms: 90, shrubs: 140, grass: 2600, driftwood: 14 },
     clouds: 0.5,
     sun: 0.66,
     nav: 'The Canopy',
@@ -102,6 +111,10 @@ export const SECTIONS = [
   },
   {
     slug: 'horizon',
+    // The only section that keeps going past the surface. Scroll here does not
+    // stop at sea level — it crosses it and descends to the seabed.
+    journey: 'dive',
+    life: { coral: 55, schools: 1, resting: 3, godrays: 0.35 },
     clouds: 0.78,
     sun: 0.8,
     nav: 'The Horizon',

@@ -1,5 +1,7 @@
 import { NOISE_GLSL } from './common.js';
 import { CLOUDS_GLSL } from './clouds.js';
+import { UNDERWATER_GLSL } from './underwater.js';
+import { SWELL_GLSL, CHOP_AMPLITUDE } from '../waves.js';
 
 /**
  * Ocean, lagoon and reef — the piece the mountain reference site never needs.
@@ -16,14 +18,13 @@ import { CLOUDS_GLSL } from './clouds.js';
  *     re-lights together with the sky and the island as the scene is dragged
  */
 
+// Swell comes from waves.js so anything that floats can sit on exactly this
+// surface; the fbm chop is GPU-only detail, and its amplitude is the waterline
+// error a floating object inherits — see waves.js.
 const WAVE_GLSL = /* glsl */ `
+${SWELL_GLSL}
 float waveHeight(vec2 p, float t) {
-  float h = 0.0;
-  h += sin(dot(p, vec2( 0.62,  0.78)) * 0.42 + t * 0.95) * 0.34;
-  h += sin(dot(p, vec2(-0.85,  0.52)) * 0.71 + t * 1.35) * 0.20;
-  h += sin(dot(p, vec2( 0.31, -0.95)) * 1.28 + t * 1.85) * 0.10;
-  h += fbm3(vec3(p * 0.075, t * 0.16)) * 0.55;
-  return h;
+  return swellHeight(p, t) + fbm3(vec3(p * 0.075, t * 0.16)) * ${CHOP_AMPLITUDE.toFixed(2)};
 }
 `;
 
@@ -84,6 +85,7 @@ uniform float uFogNear;
 uniform float uFogFar;
 uniform float uCoverage;
 uniform vec2 uStir;
+uniform float uUnderwater;
 
 varying vec3 vWorldPos;
 varying vec3 vNormal;
@@ -91,12 +93,55 @@ varying float vCrest;
 
 ${NOISE_GLSL}
 ${CLOUDS_GLSL}
+${UNDERWATER_GLSL}
 ${COAST_GLSL}
+
+/**
+ * The surface seen from underneath.
+ *
+ * Refraction squeezes the entire sky into a cone about 48 degrees off vertical
+ * — Snell's window. Look up and there is a bright disc of the world above;
+ * look outward past the critical angle and the surface turns into a mirror of
+ * the dark water behind you. Getting this right is most of what makes a dive
+ * feel like being underwater rather than in a blue room.
+ */
+vec3 surfaceFromBelow(vec3 N, vec3 viewUp, vec3 L) {
+  // Perturbing the vertical by the wave normal is what makes the rim of the
+  // window ripple instead of sitting as a hard circle.
+  vec3 up = normalize(vec3(0.0, 1.0, 0.0) + (N - vec3(0.0, 1.0, 0.0)) * 0.55);
+  float ang = acos(clamp(dot(viewUp, up), -1.0, 1.0));
+
+  const float CRITICAL = 0.8355;  // asin(1 / 1.333)
+  float window = 1.0 - smoothstep(CRITICAL * 0.82, CRITICAL, ang);
+
+  vec3 through = mix(uSkyBottom, uSkyTop, 0.35) * (0.85 + 0.5 * uIntensity);
+  // Outside the window: total internal reflection of the water below.
+  vec3 mirror = uWaterColor * 0.30 + uAmbient * 0.10;
+
+  vec3 col = mix(mirror, through, window);
+
+  // The sun, compressed toward the middle of the window.
+  float sun = pow(max(dot(viewUp, L), 0.0), 34.0);
+  col += uSunColor * sun * window * 1.7 * uIntensity;
+
+  // Bright caustic filaments running along the underside.
+  col += uSunColor * caustics(vWorldPos.xz * 1.4, uTime) * 0.28 * uIntensity * window;
+
+  return col;
+}
 
 void main() {
   vec3 N = normalize(vNormal);
   vec3 V = normalize(uCameraPos - vWorldPos);
   vec3 L = normalize(uSunDir);
+
+  if (!gl_FrontFacing) {
+    vec3 col = surfaceFromBelow(N, -V, L);
+    float dist = length(uCameraPos - vWorldPos);
+    col = underwaterMedium(col, dist, deepWater(uWaterColor), uUnderwater);
+    gl_FragColor = vec4(col, 1.0);
+    return;
+  }
 
   float d = length(vWorldPos.xz);
   float coral = fbm3(vec3(vWorldPos.xz * 0.045, 0.0)) * 0.5 + 0.5;

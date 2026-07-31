@@ -3,6 +3,7 @@ import { state, EVENTS } from './state.js';
 import { Atmosphere } from './Atmosphere.js';
 import { IslandScene } from './IslandScene.js';
 import { SECTIONS } from '../config/sections.js';
+import { sampleJourney } from './journeys.js';
 
 /**
  * The engine. Owns the renderer, the camera and the frame loop, and knows
@@ -57,6 +58,19 @@ class App {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    // A browser allows only a handful of live WebGL contexts (~16). Without
+    // this, every full reload during development leaks one and the renderer
+    // eventually fails to construct at all — "Error creating WebGL context",
+    // with no scene and no obvious cause.
+    // Note: `beforeunload`, not `pagehide` — pagehide also fires when the tab
+    // is merely hidden, and killing the context there loses the scene on every
+    // tab switch.
+    window.addEventListener('beforeunload', () => {
+      this.renderer?.setAnimationLoop(null);
+      this.renderer?.dispose();
+      this.renderer?.forceContextLoss();
+    });
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.5, 1400);
 
@@ -157,9 +171,16 @@ class App {
     // Opens high enough to read the heart from the air (~50° elevation), then
     // dives to sea level as you scroll. The shape IS the subject, so the first
     // frame has to show it.
-    const dist = THREE.MathUtils.lerp(100, 58, sc);
-    const height = THREE.MathUtils.lerp(124, 12, sc);
-    const lookY = THREE.MathUtils.lerp(1.5, 3.2, sc);
+    // Each section chooses where scrolling takes the camera. Blend between the
+    // neighbours' journeys while dragging, so a half-turned carousel is not
+    // snapping between two different flight paths mid-gesture.
+    const jA = sampleJourney(SECTIONS[i0].journey, sc);
+    const jB = sampleJourney(SECTIONS[i1].journey, sc);
+    const k = s - i0;
+    const dist = THREE.MathUtils.lerp(jA.d, jB.d, k);
+    const height = THREE.MathUtils.lerp(jA.h, jB.h, k);
+    const lookY = THREE.MathUtils.lerp(jA.look, jB.look, k);
+    const azExtra = THREE.MathUtils.lerp(jA.az, jB.az, k);
 
     // Pointer parallax. Deliberately tiny — a few degrees of swing and a metre
     // or two of lift. Large enough to register as the world responding, small
@@ -169,14 +190,32 @@ class App {
     const px = this.pointer.x;
     const py = this.pointer.y;
 
+    const azTotal = az + azExtra + px * 0.05;
     this.camera.position.set(
-      Math.sin(az + px * 0.05) * dist,
+      Math.sin(azTotal) * dist,
       height + py * 2.4,
-      Math.cos(az + px * 0.05) * dist
+      Math.cos(azTotal) * dist
     );
     this.camera.lookAt(px * 1.4, lookY - py * 0.5, 0);
     this.camera.updateMatrixWorld();
     u.uCameraPos.value.copy(this.camera.position);
+
+    // How submerged the eye is. Smoothed over ~1.6 units rather than switched
+    // at y = 0, so breaking the surface is a transition instead of a pop —
+    // this single value drives the medium in every shader.
+    const submerged = THREE.MathUtils.smoothstep(-this.camera.position.y, -0.8, 0.8);
+    u.uUnderwater.value = submerged;
+    this.world.setUnderwater(submerged, this.camera.position.y);
+    this.world.update(dt, this.camera.position.y);
+
+    // Populate the reef for whichever section the carousel has settled on.
+    // Doing this on change rather than per frame keeps the instance rebuild
+    // off the frame budget while the camera is actually moving.
+    const settled = Math.round(s);
+    if (settled !== this._populatedFor) {
+      this._populatedFor = settled;
+      this.world.applySection(SECTIONS[settled]);
+    }
 
     // Where the cursor lands on the sea. Both the sky clouds and their shadows
     // are stirred around this one point, so a disturbance in the deck and the

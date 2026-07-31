@@ -1,5 +1,6 @@
 import { NOISE_GLSL } from './common.js';
 import { CLOUDS_GLSL } from './clouds.js';
+import { UNDERWATER_GLSL } from './underwater.js';
 
 /**
  * Sky dome: vertical gradient, sun disc, and two layers of cloud.
@@ -37,11 +38,14 @@ uniform float uIntensity;
 uniform float uTime;
 uniform float uCoverage;
 uniform vec2 uStir;
+uniform float uUnderwater;
+uniform vec3 uWaterColor;
 
 varying vec3 vDir;
 
 ${NOISE_GLSL}
 ${CLOUDS_GLSL}
+${UNDERWATER_GLSL}
 
 void main() {
   vec3 dir = normalize(vDir);
@@ -102,6 +106,11 @@ void main() {
     cloudCol = mix(cloudCol, uFogColor, (1.0 - horizonFade) * 0.8);
     col = mix(col, cloudCol, density);
   }
+
+  // Underwater there is no sky to see: scattering closes the view long before
+  // any horizon. Without this the dome shows through wherever the seabed ends,
+  // and a dusk sky paints the whole dive orange.
+  col = underwaterMedium(col, 420.0, deepWater(uWaterColor), uUnderwater);
 
   gl_FragColor = vec4(col, 1.0);
 }

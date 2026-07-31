@@ -1,5 +1,6 @@
 import { NOISE_GLSL } from './common.js';
 import { CLOUDS_GLSL } from './clouds.js';
+import { UNDERWATER_GLSL } from './underwater.js';
 
 /**
  * Island surface. Blends sand / rock / vegetation by height and slope, then
@@ -31,6 +32,7 @@ uniform vec3 uSunDir;
 uniform vec3 uSunColor;
 uniform vec3 uAmbient;
 uniform vec3 uFogColor;
+uniform vec3 uWaterColor;
 uniform float uIntensity;
 uniform float uFogNear;
 uniform float uFogFar;
@@ -48,6 +50,7 @@ uniform float uDelight;    // how hard to flatten the photo's own baked shading
 uniform float uTime;
 uniform float uCoverage;
 uniform vec2 uStir;
+uniform float uUnderwater;
 
 varying vec3 vWorldPos;
 varying vec3 vNormal;
@@ -55,6 +58,7 @@ varying float vHeight;
 
 ${NOISE_GLSL}
 ${CLOUDS_GLSL}
+${UNDERWATER_GLSL}
 
 void main() {
   vec3 N = normalize(vNormal);
@@ -118,8 +122,13 @@ void main() {
 
   // --- Fog ------------------------------------------------------------
   float dist = length(uCameraPos - vWorldPos);
+
+  // Submerged parts of the island belong to the water, not the air.
+  float wet = max(uUnderwater, smoothstep(0.6, -1.2, vWorldPos.y));
+  color = underwaterMedium(color, dist, deepWater(uWaterColor), wet);
+
   float fog = smoothstep(uFogNear, uFogFar, dist);
-  color = mix(color, uFogColor, fog);
+  color = mix(color, uFogColor, fog * (1.0 - uUnderwater));
 
   gl_FragColor = vec4(color, 1.0);
 }
