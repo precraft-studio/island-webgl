@@ -14,7 +14,9 @@ class App {
     this.atmosphere = new Atmosphere();
 
     // Drag state: `target` jumps, `current` chases it — this gap is the inertia.
-    this.slide = { target: 0, current: 0 };
+    // Opens at midday: the first frame should be the bright Fiji reading, not
+    // the dawn end of the palette. Keep in sync with INITIAL_SLIDE in drag.js.
+    this.slide = { target: 0.28, current: 0.28 };
     this.scroll = { target: 0, current: 0 };
 
     this.clock = new THREE.Clock();
@@ -121,9 +123,12 @@ class App {
     // If they matched, the sun would be locked to the camera and the light
     // would never appear to move across the island.
     const az = s * Math.PI * 2 * 0.85;
-    const dist = THREE.MathUtils.lerp(112, 56, sc);
-    const height = THREE.MathUtils.lerp(31, 11, sc);
-    const lookY = THREE.MathUtils.lerp(6, 3.2, sc);
+    // Opens high enough to read the heart from the air (~50° elevation), then
+    // dives to sea level as you scroll. The shape IS the subject, so the first
+    // frame has to show it.
+    const dist = THREE.MathUtils.lerp(100, 58, sc);
+    const height = THREE.MathUtils.lerp(124, 12, sc);
+    const lookY = THREE.MathUtils.lerp(1.5, 3.2, sc);
 
     this.camera.position.set(Math.sin(az) * dist, height, Math.cos(az) * dist);
     this.camera.lookAt(0, lookY, 0);

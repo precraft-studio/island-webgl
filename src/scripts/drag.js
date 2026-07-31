@@ -4,6 +4,9 @@ import { state, EVENTS } from '../webgl/state.js';
 
 gsap.registerPlugin(Observer);
 
+/** Opening time of day. Mirrored in GlobalApp's initial slide value. */
+export const INITIAL_SLIDE = 0.28;
+
 /**
  * Horizontal drag → scene rotation + light sweep.
  *
@@ -17,7 +20,9 @@ export function initDrag() {
   if (!zone) return;
 
   const readout = document.querySelector('[data-slide-readout]');
-  let slide = 0;
+  // Midday. Must match GlobalApp's initial slide, or the scene would jump on
+  // the first publish.
+  let slide = INITIAL_SLIDE;
 
   const publish = () => {
     zone.style.setProperty('--slide-progress', slide.toFixed(4));
