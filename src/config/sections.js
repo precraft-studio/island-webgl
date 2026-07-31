@@ -14,6 +14,7 @@
 export const SECTIONS = [
   {
     slug: '',
+    clouds: 0.42,
     sun: 0.3,
     nav: 'The Island',
     title: 'A heart, seen from the air',
@@ -39,6 +40,7 @@ export const SECTIONS = [
   },
   {
     slug: 'reef',
+    clouds: 0.62,
     sun: 0.55,
     nav: 'The Reef',
     title: 'The break that made it famous',
@@ -64,6 +66,7 @@ export const SECTIONS = [
   },
   {
     slug: 'lagoon',
+    clouds: 0.22,
     sun: 0.2,
     nav: 'The Lagoon',
     title: 'Where the sand shows through',
@@ -81,6 +84,7 @@ export const SECTIONS = [
   },
   {
     slug: 'canopy',
+    clouds: 0.5,
     sun: 0.66,
     nav: 'The Canopy',
     title: 'Green above the sand line',
@@ -98,6 +102,7 @@ export const SECTIONS = [
   },
   {
     slug: 'horizon',
+    clouds: 0.78,
     sun: 0.8,
     nav: 'The Horizon',
     title: 'Everything past the reef',

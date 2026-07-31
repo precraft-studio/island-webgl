@@ -47,7 +47,22 @@ const { title = 'Island — Phase 0' } = Astro.props;
 
       let booted = false;
 
+      // A boot failure must never be silent: this runs inside an event
+      // listener, so a thrown error would otherwise vanish into an unhandled
+      // rejection and leave the loader up with no explanation.
+      window.__islandBoot = { scriptRan: true, calls: 0, error: null };
+
       async function boot() {
+        try {
+          await bootInner();
+        } catch (err) {
+          window.__islandBoot.error = String((err && err.stack) || err);
+          console.error('[island] boot failed:', err);
+        }
+      }
+
+      async function bootInner() {
+        window.__islandBoot.calls++;
         const wrapper = document.querySelector('#canvas-wrapper');
         const canvas = wrapper?.querySelector('canvas');
         if (!wrapper || !canvas) return;
@@ -75,6 +90,13 @@ const { title = 'Island — Phase 0' } = Astro.props;
       }
 
       document.addEventListener('astro:page-load', boot);
+
+      // Module scripts are deferred, so on the initial load this one can
+      // evaluate AFTER the router has already fired astro:page-load — in which
+      // case the listener above never runs and nothing boots. Catch that case.
+      // boot() is safe to call twice: the engine guards itself, and the drag
+      // and scroll handlers kill their previous instances first.
+      if (document.readyState !== 'loading') boot();
     </script>
   </body>
 </html>

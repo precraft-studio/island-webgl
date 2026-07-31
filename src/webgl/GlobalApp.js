@@ -35,7 +35,10 @@ class App {
   }
 
   async init(wrapper, canvas) {
-    if (this.ready) return;
+    // `ready` alone is not enough: two callers can both pass the check before
+    // either finishes, and end up building two renderers on one canvas.
+    if (this.ready || this.initializing) return;
+    this.initializing = true;
 
     this.wrapper = wrapper;
     this.canvas = canvas;
@@ -114,6 +117,12 @@ class App {
     const i1 = Math.min(i0 + 1, SECTIONS.length - 1);
     const sun = THREE.MathUtils.lerp(SECTIONS[i0].sun, SECTIONS[i1].sun, s - i0);
     this.atmosphere.update(sun);
+
+    // Cloud cover is art-directed the same way — clear over the lagoon,
+    // building toward the horizon section.
+    this.world.shared.uCoverage.value = THREE.MathUtils.lerp(
+      SECTIONS[i0].clouds, SECTIONS[i1].clouds, s - i0
+    );
     const u = this.world.shared;
     u.uSunDir.value.copy(this.atmosphere.sunDir);
     u.uSunColor.value.copy(this.atmosphere.sunColor);
@@ -146,4 +155,8 @@ class App {
 }
 
 export const GlobalApp = new App();
+
+// Debug handle. The engine is deliberately unreachable from the DOM, which
+// also makes it unreachable from the console — this is the one door in.
+if (typeof window !== 'undefined') window.__islandApp = GlobalApp;
 export { state, EVENTS };

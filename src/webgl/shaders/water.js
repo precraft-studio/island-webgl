@@ -1,4 +1,5 @@
 import { NOISE_GLSL } from './common.js';
+import { CLOUDS_GLSL } from './clouds.js';
 
 /**
  * Ocean, lagoon and reef — the piece the mountain reference site never needs.
@@ -81,12 +82,14 @@ uniform float uIntensity;
 uniform float uTime;
 uniform float uFogNear;
 uniform float uFogFar;
+uniform float uCoverage;
 
 varying vec3 vWorldPos;
 varying vec3 vNormal;
 varying float vCrest;
 
 ${NOISE_GLSL}
+${CLOUDS_GLSL}
 ${COAST_GLSL}
 
 void main() {
@@ -137,7 +140,13 @@ void main() {
   // water shift warm and dark with the sky while keeping its own identity.
   float sunUp = max(uSunDir.y, 0.0);
   vec3 waterLight = uSunColor * (0.55 + 0.45 * sunUp) * uIntensity + uAmbient * 0.28;
-  body *= mix(vec3(1.0), waterLight, 0.7);
+
+  // Cloud shadows drifting across the lagoon — the single most recognisable
+  // feature of an aerial ocean shot, and the reason the clouds are worth
+  // having at a camera angle that barely shows the sky.
+  float shade = cloudShadow(vWorldPos, L, uTime, uCoverage, 0.42);
+
+  body *= mix(vec3(1.0), waterLight * shade, 0.7);
 
   // --- Reflection + fresnel -------------------------------------------
   vec3 R = reflect(-V, N);
@@ -159,7 +168,9 @@ void main() {
   vec3 H = normalize(L + V);
   float spec = pow(max(dot(N, H), 0.0), 220.0);
   float wide = pow(max(dot(N, H), 0.0), 26.0) * 0.12;
-  color += uSunColor * (spec * 1.6 + wide) * uIntensity;
+  // Glitter is direct sun, so it has to disappear under cloud entirely —
+  // shading the body but leaving the sparkle is a classic tell.
+  color += uSunColor * (spec * 1.6 + wide) * uIntensity * shade;
 
   // --- Foam: shoreline, and the break out on the reef ------------------
   float noiseF = fbm3(vec3(vWorldPos.xz * 0.55, uTime * 0.55)) * 0.5 + 0.5;

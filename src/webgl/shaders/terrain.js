@@ -1,4 +1,5 @@
 import { NOISE_GLSL } from './common.js';
+import { CLOUDS_GLSL } from './clouds.js';
 
 /**
  * Island surface. Blends sand / rock / vegetation by height and slope, then
@@ -44,11 +45,15 @@ uniform float uHasPhoto;   // 0 = procedural, 1 = photo
 uniform float uPhotoSize;  // world units the photo spans
 uniform float uDelight;    // how hard to flatten the photo's own baked shading
 
+uniform float uTime;
+uniform float uCoverage;
+
 varying vec3 vWorldPos;
 varying vec3 vNormal;
 varying float vHeight;
 
 ${NOISE_GLSL}
+${CLOUDS_GLSL}
 
 void main() {
   vec3 N = normalize(vNormal);
@@ -100,7 +105,10 @@ void main() {
   // Cheap sky occlusion: valleys darker than exposed faces.
   float ao = mix(0.72, 1.0, clamp(N.y * 0.5 + 0.5, 0.0, 1.0));
 
-  vec3 diffuse = uSunColor * wrapped * uIntensity;
+  // Same cloud field the sky draws, so shadows land under actual clouds.
+  float shade = cloudShadow(vWorldPos, L, uTime, uCoverage, 0.45);
+
+  vec3 diffuse = uSunColor * wrapped * uIntensity * shade;
   vec3 ambient = uAmbient * ao * 0.85;
 
   // Rim light picks out the silhouette against the sky when the sun is behind.
