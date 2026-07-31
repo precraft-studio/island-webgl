@@ -42,13 +42,13 @@ float cloudDensity(vec2 p, float t, float coverage) {
   // Where the weather is. Low frequency, drifting slowly, and thresholded hard
   // so much of the sky simply has no cloud over it.
   float systems = fbm3(vec3(p * 0.21, t * 0.012)) * 0.5 + 0.5;
-  float where = smoothstep(0.60 - coverage * 0.42, 0.72 - coverage * 0.30, systems);
+  float where = smoothstep(0.70 - coverage * 0.34, 0.82 - coverage * 0.26, systems);
   if (where <= 0.001) return 0.0;
 
   // The cloud itself. A narrow band gives it a boundary instead of letting it
   // dissolve into the blue.
   float base = cloudFbm(p * 0.55, t);
-  float body = smoothstep(0.585 - coverage * 0.10, 0.665 - coverage * 0.10, base);
+  float body = smoothstep(0.625 - coverage * 0.09, 0.700 - coverage * 0.09, base);
 
   return body * where;
 }

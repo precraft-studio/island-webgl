@@ -92,7 +92,10 @@ export const SECTIONS = [
     slug: 'canopy',
     // Comes in close enough that individual palms read.
     journey: 'island',
-    flora: { palms: 95, pandanus: 55, shrubs: 380, grass: 1800, driftwood: 16, bures: 14 },
+    // No planting. The procedural vegetation read worse than the bare island it
+    // was standing on, and a clean silhouette beats a populated bad one. The
+    // Flora system is intact — restoring it is this one line.
+    // flora: { palms: 95, pandanus: 55, shrubs: 380, grass: 1800, driftwood: 16, bures: 14 },
     clouds: 0.5,
     sun: 0.66,
     nav: 'The Canopy',

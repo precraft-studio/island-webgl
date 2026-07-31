@@ -74,6 +74,9 @@ export class IslandScene {
       uCoverage: { value: 0.5 },
       uStir: { value: new THREE.Vector2() },
       uStirWorld: { value: new THREE.Vector2() },
+      uShadowMap: { value: null },
+      uShadowMatrix: { value: new THREE.Matrix4() },
+      uShadowOn: { value: 0 },
       uEnvMap: { value: null },
       uHasEnv: { value: 0 },
       uUnderwater: { value: 0 },
@@ -251,6 +254,9 @@ export class IslandScene {
         uStir: this.shared.uStir,
         uUnderwater: this.shared.uUnderwater,
         uWaterColor: this.shared.uWaterColor,
+        uShadowMap: this.shared.uShadowMap,
+        uShadowMatrix: this.shared.uShadowMatrix,
+        uShadowOn: this.shared.uShadowOn,
       },
       // From under the surface this plane is overhead. Single-sided, it gets
       // backface-culled and the sky shows straight through it.
@@ -288,6 +294,9 @@ export class IslandScene {
         uUnderwater: this.shared.uUnderwater,
         uEnvMap: this.shared.uEnvMap,
         uHasEnv: this.shared.uHasEnv,
+        uShadowMap: this.shared.uShadowMap,
+        uShadowMatrix: this.shared.uShadowMatrix,
+        uShadowOn: this.shared.uShadowOn,
       },
       // Visible from below once the camera dives through it.
       side: THREE.DoubleSide,

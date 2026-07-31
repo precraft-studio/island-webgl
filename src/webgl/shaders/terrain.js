@@ -1,6 +1,7 @@
 import { NOISE_GLSL } from './common.js';
 import { CLOUDS_GLSL } from './clouds.js';
 import { UNDERWATER_GLSL } from './underwater.js';
+import { SHADOW_GLSL } from '../SunShadow.js';
 
 /**
  * Island surface. Blends sand / rock / vegetation by height and slope, then
@@ -59,6 +60,7 @@ varying float vHeight;
 ${NOISE_GLSL}
 ${CLOUDS_GLSL}
 ${UNDERWATER_GLSL}
+${SHADOW_GLSL}
 
 /**
  * Surface detail the mesh cannot hold.
@@ -140,7 +142,9 @@ void main() {
   float ao = mix(0.72, 1.0, clamp(N.y * 0.5 + 0.5, 0.0, 1.0));
 
   // Same cloud field the sky draws, so shadows land under actual clouds.
-  float shade = cloudShadow(vWorldPos, L, uTime, uCoverage, 0.45, uStir);
+  // Cloud overhead, and anything standing between this point and the sun.
+  float shade = cloudShadow(vWorldPos, L, uTime, uCoverage, 0.45, uStir)
+              * sunShadow(vWorldPos, N, L);
 
   // Wet sand: a band that the water has just been over. It is darker, smoother
   // and it shines — the single cue that separates a beach from a sand-coloured

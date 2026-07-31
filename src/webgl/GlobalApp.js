@@ -6,6 +6,7 @@ import { SECTIONS } from '../config/sections.js';
 import { sampleJourney } from './journeys.js';
 import { Post } from './Post.js';
 import { SkyEnv } from './SkyEnv.js';
+import { SunShadow } from './SunShadow.js';
 
 /**
  * The engine. Owns the renderer, the camera and the frame loop, and knows
@@ -29,6 +30,7 @@ class App {
     // the scene answers a gesture the visitor did not know they were making.
     this.pointer = { tx: 0, ty: 0, x: 0, y: 0 };
 
+    this._shadowFrame = 0;
     this.clock = new THREE.Clock();
     this.sizes = { width: 1, height: 1, dpr: 1 };
 
@@ -92,6 +94,10 @@ class App {
     this.skyEnv = new SkyEnv(this.renderer, this.world.skyGeometry, this.world.skyMaterial);
     this.world.shared.uEnvMap.value = this.skyEnv.texture;
     this.world.shared.uHasEnv.value = 1;
+
+    this.shadow = new SunShadow(this.renderer);
+    this.world.shared.uShadowMap.value = this.shadow.texture;
+    this.world.shared.uShadowMatrix.value = this.shadow.matrix;
 
     this.post = new Post(this.renderer, this.world.scene, this.camera);
 
@@ -236,6 +242,18 @@ class App {
     // The sky capture has to happen before the frame that reflects it, and
     // outside the composer — it renders to its own target.
     this.skyEnv.update();
+
+    // Shadows only matter where something stands in the light, so the map is
+    // only rebuilt for sections that have anything on the island.
+    const wantShadow = this.world.flora.group.visible || this.world.boat.group.visible;
+    if (wantShadow && this._shadowFrame++ % 2 === 0) {
+      const ok = this.shadow.update(this.world.scene, this.atmosphere.sunDir, [
+        this.world.terrain, this.world.flora.group, this.world.boat.group,
+      ]);
+      u.uShadowOn.value = ok ? 1 : 0;
+    } else if (!wantShadow) {
+      u.uShadowOn.value = 0;
+    }
 
     this.post.render();
   }

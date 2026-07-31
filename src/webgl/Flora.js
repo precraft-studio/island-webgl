@@ -65,6 +65,9 @@ export class Flora {
         uIntensity: this.shared.uIntensity,
         uFogNear: this.shared.uFogNear,
         uFogFar: this.shared.uFogFar,
+        uShadowMap: this.shared.uShadowMap,
+        uShadowMatrix: this.shared.uShadowMatrix,
+        uShadowOn: this.shared.uShadowOn,
       },
     });
   }

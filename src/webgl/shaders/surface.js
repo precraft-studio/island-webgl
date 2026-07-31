@@ -1,4 +1,5 @@
 import { NOISE_GLSL } from './common.js';
+import { SHADOW_GLSL } from '../SunShadow.js';
 
 /**
  * Lighting for things that stand in the air: the boat, and everything growing
@@ -10,6 +11,8 @@ import { NOISE_GLSL } from './common.js';
  */
 
 const SURFACE_LIGHT = /* glsl */ `
+${SHADOW_GLSL}
+
 uniform vec3 uSunDir;
 uniform vec3 uSunColor;
 uniform vec3 uAmbient;
@@ -23,6 +26,10 @@ vec3 litSurface(vec3 albedo, vec3 N, vec3 worldPos, float translucency) {
   vec3 L = normalize(uSunDir);
   vec3 V = normalize(uCameraPos - worldPos);
 
+  // Vegetation shadows itself and its neighbours; without this a grove is a
+  // set of evenly lit cut-outs rather than a canopy.
+  float shadow = sunShadow(worldPos, N, L);
+
   // Wrapped lambert: fronds and sails are thin, and a hard terminator on them
   // reads as cardboard.
   float wrapped = clamp((dot(N, L) + 0.4) / 1.4, 0.0, 1.0);
@@ -31,7 +38,7 @@ vec3 litSurface(vec3 albedo, vec3 N, vec3 worldPos, float translucency) {
   // the sun is behind it.
   float back = pow(clamp(dot(-N, L) * 0.5 + 0.5, 0.0, 1.0), 2.0) * translucency;
 
-  vec3 color = albedo * (uSunColor * (wrapped + back) * uIntensity + uAmbient * 0.75);
+  vec3 color = albedo * (uSunColor * (wrapped + back) * uIntensity * shadow + uAmbient * 0.75);
 
   float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0) * max(dot(-V, L) * 0.5 + 0.5, 0.0);
   color += uSunColor * rim * 0.25 * uIntensity;

@@ -2,6 +2,7 @@ import { NOISE_GLSL } from './common.js';
 import { CLOUDS_GLSL } from './clouds.js';
 import { UNDERWATER_GLSL } from './underwater.js';
 import { SWELL_GLSL, CHOP_AMPLITUDE } from '../waves.js';
+import { SHADOW_GLSL } from '../SunShadow.js';
 
 /**
  * Ocean, lagoon and reef — the piece the mountain reference site never needs.
@@ -97,6 +98,7 @@ ${NOISE_GLSL}
 ${CLOUDS_GLSL}
 ${UNDERWATER_GLSL}
 ${COAST_GLSL}
+${SHADOW_GLSL}
 
 /**
  * Ripples below the mesh resolution.
@@ -274,7 +276,8 @@ void main() {
   // feature of an aerial ocean shot, and the reason the clouds are worth
   // having at a camera angle that barely shows the sky.
   float shade = cloudShadow(vWorldPos, L, uTime, uCoverage, 0.42, uStir)
-              * islandShadow(vWorldPos, L);
+              * islandShadow(vWorldPos, L)
+              * sunShadow(vWorldPos, N, L);
 
   body *= mix(vec3(1.0), waterLight * shade, 0.7);
 
