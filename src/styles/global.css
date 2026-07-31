@@ -25,10 +25,18 @@ html, body {
 
 body { overflow-x: hidden; }
 
-/* Hide the native cursor only once ours is actually tracking. */
-body.cursor-active,
-body.cursor-active a,
-body.cursor-active [data-cursor] { cursor: none; }
+/*
+ * The native cursor stays.
+ *
+ * It is drawn by the operating system's own compositor and never waits for the
+ * page, so nothing built in the DOM can match it — a substitute is a frame
+ * behind at best, and that gap is exactly what reads as input lag. The
+ * reference site never hides it either: it uses real cursors (grab on the drag
+ * surface) and treats its own cursor element as a trailing accent rather than
+ * a replacement.
+ */
+[data-cursor='draggable'] { cursor: grab; }
+[data-cursor='draggable'][data-cursor-state='dragging'] { cursor: grabbing; }
 
 /* --- WebGL canvas -------------------------------------------------- */
 #canvas-wrapper {
@@ -59,33 +67,24 @@ body.loaded .loader { opacity: 0; visibility: hidden; }
   color: var(--ink-dim);
 }
 
-/* --- Custom cursor ------------------------------------------------- */
-.cursor-ring, .cursor-dot {
+/* --- Cursor accent -------------------------------------------------
+   A ring that trails the pointer. It is decoration, not a pointer: the real
+   one is still there underneath it, so this is free to lag as much as it
+   likes — which is the effect. */
+.cursor-ring {
   position: fixed;
   top: 0; left: 0;
+  width: 34px; height: 34px;
   z-index: 90;
   pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.3s;
-  mix-blend-mode: difference;
-  will-change: transform;
-}
-body.cursor-active .cursor-ring,
-body.cursor-active .cursor-dot { opacity: 1; }
-
-.cursor-ring {
-  width: 34px; height: 34px;
   border: 1px solid rgba(255, 255, 255, 0.75);
   border-radius: 50%;
-  /* Size changes are a scale in the transform, not width/height — animating
-     those re-runs layout on the same thread that handles the pointer. */
+  opacity: 0;
+  mix-blend-mode: difference;
+  will-change: transform;
   transition: opacity 0.3s, background-color 0.3s;
 }
-.cursor-dot {
-  width: 4px; height: 4px;
-  background: #fff;
-  border-radius: 50%;
-}
+body.cursor-active .cursor-ring { opacity: 1; }
 .cursor-ring.is-down { background: rgba(255, 255, 255, 0.14); }
 
 /* --- Layout -------------------------------------------------------- */

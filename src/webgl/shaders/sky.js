@@ -73,12 +73,13 @@ void main() {
     vec2 p1 = cloudStir(cloudPlaneFromDir(dir, uTime), uStir, 0.42, 0.10);
     float c1 = cloudDensity(p1, uTime, uCoverage);
 
-    // Cirrus: stretched along the wind and much finer, so it reads as a thin
-    // veil above the main deck rather than a second copy of it.
+    // Cirrus. Deliberately thresholded high and kept faint: as a veil across
+    // the whole sky it was doing more than anything else to make the frame
+    // look hazy. It should be a few streaks, not a wash.
     vec2 uv = dir.xz / dir.y;
     vec2 p2 = vec2(uv.x * 0.10, uv.y * 0.42) + cloudWind(uTime) * 2.1;
-    float c2 = smoothstep(0.42, 0.92, cloudFbm(p2, uTime * 1.6))
-             * (0.30 + uCoverage * 0.30);
+    float c2 = smoothstep(0.66, 0.86, cloudFbm(p2, uTime * 1.6))
+             * (0.10 + uCoverage * 0.16);
 
     // Self-shadowing: compare density here against a step toward the sun.
     // Where the cloud thins sunward, light gets through — that difference is
@@ -103,7 +104,9 @@ void main() {
     float zenithThin  = 1.0 - smoothstep(0.72, 1.0, dir.y) * 0.35;
     density *= horizonFade * zenithThin;
 
-    cloudCol = mix(cloudCol, uFogColor, (1.0 - horizonFade) * 0.8);
+    // Only the last of the fade goes to haze — clouds near the horizon are
+    // still clouds, and pulling them to fog colour early greys the whole band.
+    cloudCol = mix(cloudCol, uFogColor, (1.0 - horizonFade) * 0.45);
     col = mix(col, cloudCol, density);
   }
 

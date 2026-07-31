@@ -1,9 +1,17 @@
 import gsap from 'gsap';
 
 /**
- * Custom cursor: a dot pinned to the pointer and a ring that lags behind it.
- * The lag IS the effect — the ring lerps toward the pointer every frame, so
- * fast movement stretches the gap and stopping lets it settle.
+ * A ring that trails the pointer.
+ *
+ * It is an accent, not a pointer. The operating system's own cursor stays
+ * visible underneath — it is drawn by the system compositor and never waits
+ * for the page, so nothing in the DOM can match it, and substituting for it is
+ * what makes a site feel laggy however carefully the substitute is written.
+ * The reference site does the same: real cursors (grab on the drag surface)
+ * with a trailing ring over the top.
+ *
+ * Because the real pointer is right there, this is free to lag — which is the
+ * effect.
  *
  * States come from markup, matching the reference site's contract:
  *   data-cursor="draggable"   → hover style
@@ -14,35 +22,15 @@ export function initCursor() {
   if (window.matchMedia('(hover: none), (pointer: coarse)').matches) return;
 
   const ring = document.querySelector('.cursor-ring');
-  const dot = document.querySelector('.cursor-dot');
-  if (!ring || !dot) return;
+  if (!ring) return;
 
   const pointer = { x: innerWidth / 2, y: innerHeight / 2 };
   const ringPos = { ...pointer };
   let visible = false;
 
-  /**
-   * The dot is written here, in the event, and NOT in the frame loop.
-   *
-   * This is the difference between a cursor that feels attached to the hand and
-   * one that feels laggy. Setting it in the ticker means the dot is always at
-   * least a frame behind the pointer, and since the same frame loop is also
-   * rendering the scene, every hitch in the render shows up as the cursor
-   * stalling. The native cursor is hidden, so that lag is the only pointer the
-   * visitor has — it has to be exact.
-   *
-   * The ring is the opposite case and stays in the ticker: its lag is the
-   * effect.
-   */
-  const placeDot = () => {
-    dot.style.transform =
-      `translate3d(${pointer.x}px, ${pointer.y}px, 0) translate(-50%, -50%)`;
-  };
-
   const onMove = (e) => {
     pointer.x = e.clientX;
     pointer.y = e.clientY;
-    placeDot();
     if (!visible) {
       visible = true;
       ringPos.x = pointer.x;
@@ -51,12 +39,7 @@ export function initCursor() {
     }
   };
 
-  // `pointerrawupdate` fires ahead of pointermove and is not coalesced, so the
-  // dot lands on the newest position the OS has rather than the one the frame
-  // pipeline got round to reporting. Where it does not exist, pointermove is
-  // the same code path.
-  const moveEvent = 'onpointerrawupdate' in window ? 'pointerrawupdate' : 'pointermove';
-  window.addEventListener(moveEvent, onMove, { passive: true });
+  window.addEventListener('pointermove', onMove, { passive: true });
   window.addEventListener('pointerdown', () => ring.classList.add('is-down'));
   window.addEventListener('pointerup', () => ring.classList.remove('is-down'));
   document.addEventListener('mouseleave', () => {

@@ -32,9 +32,25 @@ float cloudFbm(vec2 p, float t) {
 
 // Density 0..1 on the cloud plane. Coverage moves it from clear to overcast.
 // (No backticks in comments inside this template literal — one would close it.)
+//
+// Two things separate cloud from haze, and the old single wide smoothstep had
+// neither. A cloud has an EDGE: the transition from cloud to sky happens over
+// a short distance, not across the whole range of the noise. And cloud comes
+// in SYSTEMS: there are tracts of sky with nothing in them, rather than a thin
+// veil everywhere. Miss both and any amount of coverage reads as fog.
 float cloudDensity(vec2 p, float t, float coverage) {
+  // Where the weather is. Low frequency, drifting slowly, and thresholded hard
+  // so much of the sky simply has no cloud over it.
+  float systems = fbm3(vec3(p * 0.21, t * 0.012)) * 0.5 + 0.5;
+  float where = smoothstep(0.60 - coverage * 0.42, 0.72 - coverage * 0.30, systems);
+  if (where <= 0.001) return 0.0;
+
+  // The cloud itself. A narrow band gives it a boundary instead of letting it
+  // dissolve into the blue.
   float base = cloudFbm(p * 0.55, t);
-  return smoothstep(0.52 - coverage * 0.30, 0.86 - coverage * 0.18, base);
+  float body = smoothstep(0.585 - coverage * 0.10, 0.665 - coverage * 0.10, base);
+
+  return body * where;
 }
 
 /**
