@@ -241,11 +241,14 @@ class App {
     if (!(t > 0)) t = 0;
     t = Math.min(t, 400);
 
+    const hitX = origin.x + dir.x * t;
+    const hitZ = origin.z + dir.z * t;
+
     const CLOUD_H = 300;
-    u.uStir.value.set(
-      ((origin.x + dir.x * t) / CLOUD_H) * 0.3,
-      ((origin.z + dir.z * t) / CLOUD_H) * 0.3
-    );
+    u.uStir.value.set((hitX / CLOUD_H) * 0.3, (hitZ / CLOUD_H) * 0.3);
+    // The same point in plain world units, for anything that lives in the
+    // water rather than on the cloud plane.
+    u.uStirWorld.value.set(hitX, hitZ);
   }
 }
 

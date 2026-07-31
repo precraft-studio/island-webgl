@@ -3,6 +3,7 @@ import { fbm2D } from './noise.js';
 import { SEABED_Y } from './journeys.js';
 import {
   SEABED_VERT, SEABED_FRAG, REEF_VERT, REEF_FRAG, SHAFT_VERT, SHAFT_FRAG,
+  PLANKTON_VERT, PLANKTON_FRAG,
 } from './shaders/seabed.js';
 
 /**
@@ -17,7 +18,7 @@ import {
  * Everything is instanced. One draw call per species, however many there are.
  */
 
-const MAX = { coral: 140, fish: 260, resting: 6, shafts: 26 };
+const MAX = { coral: 140, fish: 260, resting: 6, shafts: 26, plankton: 1400 };
 
 /** Deterministic RNG — the reef must be identical on every reload. */
 function rng(seed) {
@@ -75,6 +76,7 @@ export class Seabed {
     this.#buildFish();
     this.#buildResting();
     this.#buildShafts();
+    this.#buildPlankton();
   }
 
   /** Height of the seabed at a point — a shallow bowl with dunes. */
@@ -286,6 +288,54 @@ export class Seabed {
   }
 
   /**
+   * Plankton drifting through the water column. One draw call, all motion in
+   * the vertex shader — the CPU never touches these again after setup.
+   */
+  #buildPlankton() {
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(MAX.plankton * 3);
+    const phase = new Float32Array(MAX.plankton);
+    const size = new Float32Array(MAX.plankton);
+    const rand = rng(90210);
+
+    for (let i = 0; i < MAX.plankton; i++) {
+      // A ring around the island, through the depth the dive passes.
+      const a = rand() * Math.PI * 2;
+      const r = 30 + rand() * 190;
+      pos[i * 3] = Math.cos(a) * r;
+      pos[i * 3 + 1] = SEABED_Y + 2 + rand() * 30;
+      pos[i * 3 + 2] = Math.sin(a) * r;
+      phase[i] = rand() * Math.PI * 2;
+      size[i] = 0.9 + rand() * 2.1;
+    }
+
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('aPhase', new THREE.BufferAttribute(phase, 1));
+    geo.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+
+    this.plankton = new THREE.Points(
+      geo,
+      new THREE.ShaderMaterial({
+        vertexShader: PLANKTON_VERT,
+        fragmentShader: PLANKTON_FRAG,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        uniforms: {
+          uTime: this.shared.uTime,
+          uStirWorld: this.shared.uStirWorld,
+          uWaterColor: this.shared.uWaterColor,
+          uIntensity: this.shared.uIntensity,
+          uPixelRatio: { value: Math.min(window.devicePixelRatio || 1, 2) },
+        },
+      })
+    );
+    this.plankton.frustumCulled = false;
+    this.plankton.geometry.setDrawRange(0, 0);
+    this.group.add(this.plankton);
+  }
+
+  /**
    * Populate for a section. Called on navigation, not per frame.
    * `life` is the section's own density config.
    */
@@ -425,6 +475,11 @@ export class Seabed {
     this.shafts.count = nShafts;
     this.shafts.instanceMatrix.needsUpdate = true;
     this.shafts.material.uniforms.uStrength.value = cfg.godrays ?? 0;
+
+    // --- Plankton --------------------------------------------------------
+    this.plankton.geometry.setDrawRange(
+      0, Math.min(cfg.plankton ?? 0, MAX.plankton)
+    );
   }
 
   /** Per-frame: swim the schools. Everything else is static or sways in GLSL. */

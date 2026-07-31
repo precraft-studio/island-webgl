@@ -71,6 +71,7 @@ export class IslandScene {
       uTime: { value: 0 },
       uCoverage: { value: 0.5 },
       uStir: { value: new THREE.Vector2() },
+      uStirWorld: { value: new THREE.Vector2() },
       uUnderwater: { value: 0 },
       uFogNear: { value: 110 },
       uFogFar: { value: 380 },

@@ -243,3 +243,82 @@ void main() {
   gl_FragColor = vec4(uSunColor * uIntensity * a, a);
 }
 `;
+
+/**
+ * Bioluminescent plankton.
+ *
+ * Dinoflagellates emit a brief blue-green flash when the water around them is
+ * disturbed — the effect that lights a bow wave or a footprint in wet sand at
+ * night. Two things follow from that and both matter here:
+ *
+ *   - it is a RESPONSE, not a steady glow. Particles idle near-dark and flare
+ *     where the water is stirred, which is why this is worth wiring to the
+ *     pointer rather than left to drift on its own.
+ *   - the emission is narrow-band blue-green (~480nm), which is also the band
+ *     seawater absorbs least. It carries further than anything else down here.
+ *
+ * Gated on darkness for the same reason as the coral: daylight drowns it.
+ */
+export const PLANKTON_VERT = /* glsl */ `
+attribute float aPhase;
+attribute float aSize;
+
+uniform float uTime;
+uniform vec2 uStirWorld;
+uniform float uPixelRatio;
+
+varying float vGlow;
+
+void main() {
+  vec3 p = position;
+
+  // Slow individual drift, so the field never reads as a fixed lattice.
+  p.x += sin(uTime * 0.11 + aPhase * 3.1) * 2.4;
+  p.y += sin(uTime * 0.07 + aPhase * 5.7) * 1.1;
+  p.z += cos(uTime * 0.09 + aPhase * 2.3) * 2.4;
+
+  vec4 wp = modelMatrix * vec4(p, 1.0);
+  vec4 mv = viewMatrix * wp;
+
+  // Disturbance: brightest right under the cursor, falling away over ~26 units.
+  float d = distance(wp.xz, uStirWorld);
+  float stirred = smoothstep(26.0, 0.0, d);
+
+  // Idle shimmer keeps the field alive without competing with the flare.
+  float idle = 0.16 + 0.10 * sin(uTime * 0.8 + aPhase * 6.28);
+
+  vGlow = idle + stirred * 1.5;
+
+  // Flaring plankton also read as larger, which is most of what sells it.
+  gl_PointSize = aSize * uPixelRatio * (1.0 + stirred * 1.6) * (240.0 / -mv.z);
+  gl_Position = projectionMatrix * mv;
+}
+`;
+
+export const PLANKTON_FRAG = /* glsl */ `
+precision highp float;
+
+uniform vec3 uWaterColor;
+uniform float uIntensity;
+
+varying float vGlow;
+
+void main() {
+  // Soft round sprite — a squared falloff reads as a point of light rather
+  // than a disc with an edge.
+  float r = length(gl_PointCoord - 0.5) * 2.0;
+  float body = 1.0 - smoothstep(0.0, 1.0, r);
+  body *= body;
+  if (body <= 0.001) discard;
+
+  float night = 1.0 - smoothstep(0.18, 0.55, uIntensity);
+  if (night <= 0.001) discard;
+
+  // Blue-green, the band that both dinoflagellates emit in and seawater
+  // absorbs least.
+  vec3 glow = vec3(0.35, 1.0, 0.85);
+
+  float a = body * vGlow * night;
+  gl_FragColor = vec4(glow * a, a);
+}
+`;
