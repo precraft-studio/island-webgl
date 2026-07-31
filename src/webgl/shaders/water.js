@@ -83,6 +83,7 @@ uniform float uTime;
 uniform float uFogNear;
 uniform float uFogFar;
 uniform float uCoverage;
+uniform vec2 uStir;
 
 varying vec3 vWorldPos;
 varying vec3 vNormal;
@@ -144,7 +145,7 @@ void main() {
   // Cloud shadows drifting across the lagoon — the single most recognisable
   // feature of an aerial ocean shot, and the reason the clouds are worth
   // having at a camera angle that barely shows the sky.
-  float shade = cloudShadow(vWorldPos, L, uTime, uCoverage, 0.42);
+  float shade = cloudShadow(vWorldPos, L, uTime, uCoverage, 0.42, uStir);
 
   body *= mix(vec3(1.0), waterLight * shade, 0.7);
 

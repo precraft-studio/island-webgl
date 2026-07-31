@@ -47,19 +47,36 @@ vec2 cloudPlaneFromDir(vec3 dir, float t) {
 }
 
 /**
+ * Push the cloud field away from a point, falling off with distance.
+ *
+ * This is what makes the pointer feel like it is stirring the deck rather than
+ * sliding a texture. It works in cloud-plane coordinates so the sky sampling
+ * and the ground shadows can be given the same centre — disturbing one but not
+ * the other would be immediately obvious from above, where you see mostly
+ * shadows.
+ */
+vec2 cloudStir(vec2 p, vec2 centre, float radius, float strength) {
+  vec2 d = p - centre;
+  float fall = smoothstep(radius, 0.0, length(d));
+  return p + normalize(d + vec2(1e-4)) * fall * strength;
+}
+
+/**
  * Shadow multiplier for a point on the ground.
  *
  * Walks from the surface toward the sun until it reaches the deck, then reads
  * the same density the sky would draw there. Because both use
  * cloudPlaneFromDir's scale, a shadow always lands under an actual cloud.
  */
-float cloudShadow(vec3 worldPos, vec3 sunDir, float t, float coverage, float strength) {
+float cloudShadow(vec3 worldPos, vec3 sunDir, float t, float coverage,
+                  float strength, vec2 stirCentre) {
   // Sun on or below the horizon: everything is in shadow anyway, and the
   // projection blows up as sunDir.y approaches zero.
   if (sunDir.y < 0.06) return 1.0;
 
   vec2 hit = worldPos.xz + sunDir.xz * ((CLOUD_H - worldPos.y) / sunDir.y);
   vec2 p = (hit / CLOUD_H) * 0.30 + cloudWind(t);
+  p = cloudStir(p, stirCentre, 0.42, 0.10);
 
   float d = cloudDensity(p, t, coverage);
   return 1.0 - d * strength;

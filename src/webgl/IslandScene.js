@@ -69,6 +69,7 @@ export class IslandScene {
       uCameraPos: { value: new THREE.Vector3() },
       uTime: { value: 0 },
       uCoverage: { value: 0.5 },
+      uStir: { value: new THREE.Vector2() },
       uFogNear: { value: 110 },
       uFogFar: { value: 380 },
 
@@ -130,6 +131,7 @@ export class IslandScene {
         uFogColor: this.shared.uFogColor,
         uTime: this.shared.uTime,
         uCoverage: this.shared.uCoverage,
+        uStir: this.shared.uStir,
       },
     });
     this.sky = new THREE.Mesh(geo, mat);
@@ -168,6 +170,7 @@ export class IslandScene {
         uDelight: this.shared.uDelight,
         uTime: this.shared.uTime,
         uCoverage: this.shared.uCoverage,
+        uStir: this.shared.uStir,
       },
     });
 
@@ -198,6 +201,7 @@ export class IslandScene {
         uHeartLUT: this.shared.uHeartLUT,
         uHeartScale: this.shared.uHeartScale,
         uCoverage: this.shared.uCoverage,
+        uStir: this.shared.uStir,
       },
     });
 

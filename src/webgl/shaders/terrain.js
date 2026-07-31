@@ -47,6 +47,7 @@ uniform float uDelight;    // how hard to flatten the photo's own baked shading
 
 uniform float uTime;
 uniform float uCoverage;
+uniform vec2 uStir;
 
 varying vec3 vWorldPos;
 varying vec3 vNormal;
@@ -106,7 +107,7 @@ void main() {
   float ao = mix(0.72, 1.0, clamp(N.y * 0.5 + 0.5, 0.0, 1.0));
 
   // Same cloud field the sky draws, so shadows land under actual clouds.
-  float shade = cloudShadow(vWorldPos, L, uTime, uCoverage, 0.45);
+  float shade = cloudShadow(vWorldPos, L, uTime, uCoverage, 0.45, uStir);
 
   vec3 diffuse = uSunColor * wrapped * uIntensity * shade;
   vec3 ambient = uAmbient * ao * 0.85;

@@ -20,6 +20,12 @@ class App {
     this.slide = { target: 0, current: 0 };
     this.scroll = { target: 0, current: 0 };
 
+    // Pointer, normalised to -1..1. Damped hard on purpose: the world should
+    // feel like it notices the cursor, not like it is being steered by it.
+    // This is the whole trick behind the reference site's sense of liveness —
+    // the scene answers a gesture the visitor did not know they were making.
+    this.pointer = { tx: 0, ty: 0, x: 0, y: 0 };
+
     this.clock = new THREE.Clock();
     this.sizes = { width: 1, height: 1, dpr: 1 };
 
@@ -53,6 +59,15 @@ class App {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.5, 1400);
+
+    window.addEventListener(
+      'pointermove',
+      (e) => {
+        this.pointer.tx = (e.clientX / window.innerWidth) * 2 - 1;
+        this.pointer.ty = -((e.clientY / window.innerHeight) * 2 - 1);
+      },
+      { passive: true }
+    );
 
     this.world = new IslandScene();
 
@@ -146,11 +161,52 @@ class App {
     const height = THREE.MathUtils.lerp(124, 12, sc);
     const lookY = THREE.MathUtils.lerp(1.5, 3.2, sc);
 
-    this.camera.position.set(Math.sin(az) * dist, height, Math.cos(az) * dist);
-    this.camera.lookAt(0, lookY, 0);
+    // Pointer parallax. Deliberately tiny — a few degrees of swing and a metre
+    // or two of lift. Large enough to register as the world responding, small
+    // enough that it never feels like a camera control.
+    this.pointer.x += (this.pointer.tx - this.pointer.x) * 0.045;
+    this.pointer.y += (this.pointer.ty - this.pointer.y) * 0.045;
+    const px = this.pointer.x;
+    const py = this.pointer.y;
+
+    this.camera.position.set(
+      Math.sin(az + px * 0.05) * dist,
+      height + py * 2.4,
+      Math.cos(az + px * 0.05) * dist
+    );
+    this.camera.lookAt(px * 1.4, lookY - py * 0.5, 0);
+    this.camera.updateMatrixWorld();
     u.uCameraPos.value.copy(this.camera.position);
 
+    // Where the cursor lands on the sea. Both the sky clouds and their shadows
+    // are stirred around this one point, so a disturbance in the deck and the
+    // disturbance in its shadow are always the same event.
+    this.#updateStir(u, px, py);
+
     this.renderer.render(this.world.scene, this.camera);
+  }
+
+  /**
+   * Project the cursor onto the water plane and convert to cloud-plane
+   * coordinates — the same mapping cloudShadow uses, so the stir centre means
+   * the same thing to the sky and to the ground.
+   */
+  #updateStir(u, px, py) {
+    this._ndc = this._ndc || new THREE.Vector3();
+    const origin = this.camera.position;
+    const dir = this._ndc.set(px, py, 0.5).unproject(this.camera).sub(origin).normalize();
+
+    // Ray/plane at y = 0. Looking at the horizon gives a near-parallel ray, so
+    // clamp the travel rather than letting the intersection shoot to infinity.
+    let t = dir.y !== 0 ? -origin.y / dir.y : 0;
+    if (!(t > 0)) t = 0;
+    t = Math.min(t, 400);
+
+    const CLOUD_H = 300;
+    u.uStir.value.set(
+      ((origin.x + dir.x * t) / CLOUD_H) * 0.3,
+      ((origin.z + dir.z * t) / CLOUD_H) * 0.3
+    );
   }
 }
 

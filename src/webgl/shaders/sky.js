@@ -36,6 +36,7 @@ uniform vec3 uFogColor;
 uniform float uIntensity;
 uniform float uTime;
 uniform float uCoverage;
+uniform vec2 uStir;
 
 varying vec3 vDir;
 
@@ -63,7 +64,9 @@ void main() {
 
   // --- Clouds ---------------------------------------------------------
   if (dir.y > 0.015) {
-    vec2 p1 = cloudPlaneFromDir(dir, uTime);
+    // Stirred around the point the cursor touches the sea — the same centre
+    // the shadows use, so deck and shadow are disturbed as one event.
+    vec2 p1 = cloudStir(cloudPlaneFromDir(dir, uTime), uStir, 0.42, 0.10);
     float c1 = cloudDensity(p1, uTime, uCoverage);
 
     // Cirrus: stretched along the wind and much finer, so it reads as a thin

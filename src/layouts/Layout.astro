@@ -36,7 +36,11 @@ const { title = 'Island — Phase 0' } = Astro.props;
       <SectionNav />
     </header>
 
-    <main class="page"><slot /></main>
+    <!-- animate="none" removes Astro's default cross-fade. With a live 3D
+         world behind the content, fading the old page out and the new one in
+         reads as a flash over the scene rather than as a transition. The
+         reference site disables it the same way. -->
+    <main class="page" transition:animate="none"><slot /></main>
 
     <script>
       import { GlobalApp, state, EVENTS } from '../webgl/GlobalApp.js';
@@ -88,6 +92,14 @@ const { title = 'Island — Phase 0' } = Astro.props;
 
         requestAnimationFrame(() => document.body.classList.add('loaded'));
       }
+
+      // The swap replaces <body> and its attributes, so the `loaded` class is
+      // lost on every navigation and the loader flashes back to full opacity
+      // for one frame. after-swap runs before paint, so re-adding it here is
+      // what keeps the transition silent.
+      document.addEventListener('astro:after-swap', () =>
+        document.body.classList.add('loaded')
+      );
 
       document.addEventListener('astro:page-load', boot);
 

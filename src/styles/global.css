@@ -113,6 +113,17 @@ body.cursor-active .cursor-dot { opacity: 1; }
   text-transform: uppercase;
 }
 
+/* --- Navigation must not touch the scene ---------------------------
+   The canvas persists across routes, so the only thing that should change
+   on navigation is the text. Any cross-fade of the document composites the
+   old and new pages over a live 3D world, which reads as a flash. Kill the
+   root animation outright — the same approach the reference site takes. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
 /* --- Section nav: the five detents --------------------------------- */
 .section-nav {
   display: flex;

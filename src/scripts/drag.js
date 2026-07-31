@@ -9,10 +9,18 @@ gsap.registerPlugin(Observer);
 /** Drag distance that advances one section. Lower = flickier. */
 const PX_PER_SECTION = 200;
 
+/**
+ * Ceiling on a single pointer event's contribution. A pointer re-entering the
+ * window can report one enormous jump, which would otherwise fling the
+ * carousel across several sections from a gesture the user never made.
+ */
+const MAX_STEP_PX = 90;
+
 const LAST = SECTIONS.length - 1;
 const clamp = (v) => Math.max(0, Math.min(LAST, v));
 
 let observer = null;
+let keyHandlerZone = null;
 let index = 0;
 
 /**
@@ -44,20 +52,26 @@ export function initDrag() {
     onDrag: (self) => {
       if (self.lockedAxis === 'y') return;
       // Drag left to move forward through the sections.
-      index = clamp(index - self.deltaX / PX_PER_SECTION);
+      const step = Math.max(-MAX_STEP_PX, Math.min(MAX_STEP_PX, self.deltaX));
+      index = clamp(index - step / PX_PER_SECTION);
       publish(zone, index);
     },
     onDragEnd: () => settle(zone),
   });
 
   // Keyboard access — the drag must not be the only way through the sections.
+  // Detach the previous listener first: boot() can run more than once per page,
+  // and stacked listeners would each advance the index, so one arrow press
+  // would jump several sections at once.
+  keyHandlerZone?.removeEventListener('keydown', onKey);
   zone.addEventListener('keydown', onKey);
+  keyHandlerZone = zone;
 }
 
 function onKey(e) {
   const zone = e.currentTarget;
-  if (e.key === 'ArrowRight') go(zone, Math.round(index) + 1);
-  if (e.key === 'ArrowLeft') go(zone, Math.round(index) - 1);
+  if (e.key === 'ArrowRight') { e.preventDefault(); go(zone, Math.round(index) + 1); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); go(zone, Math.round(index) - 1); }
 }
 
 function go(zone, target) {
