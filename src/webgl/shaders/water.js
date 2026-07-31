@@ -97,6 +97,82 @@ ${UNDERWATER_GLSL}
 ${COAST_GLSL}
 
 /**
+ * Ripples below the mesh resolution.
+ *
+ * The vertex displacement carries the swell — metres of it, at the scale the
+ * geometry can hold. Everything finer than a vertex has to arrive as normals,
+ * and its absence is most of why untextured water reads as a plastic membrane:
+ * a real surface is never smooth at the scale that catches light.
+ *
+ * Two octaves, drifting at different rates so they never lock into a pattern.
+ */
+vec3 rippleNormal(vec2 p, float t) {
+  float e = 0.4;
+  float h  = fbm3(vec3(p * 1.15, t * 0.85));
+  float hx = fbm3(vec3((p + vec2(e, 0.0)) * 1.15, t * 0.85));
+  float hz = fbm3(vec3((p + vec2(0.0, e)) * 1.15, t * 0.85));
+  vec3 coarse = normalize(vec3(h - hx, e * 1.5, h - hz));
+
+  float f = 0.12;
+  float g  = fbm3(vec3(p * 5.2 + 37.0, t * 1.9));
+  float gx = fbm3(vec3((p + vec2(f, 0.0)) * 5.2 + 37.0, t * 1.9));
+  float gz = fbm3(vec3((p + vec2(0.0, f)) * 5.2 + 37.0, t * 1.9));
+  vec3 fine = normalize(vec3(g - gx, f * 2.2, g - gz));
+
+  return normalize(coarse + fine * 0.55);
+}
+
+/**
+ * The island's own shadow, thrown across the water.
+ *
+ * Nothing in this scene casts a shadow, and at a low sun that absence is loud:
+ * an island sitting in blazing water with no shadow reads as a sticker. This
+ * marches back along the sun ray and asks whether it passed through the island,
+ * using the same coastline the beach and the surf already agree on — so the
+ * shadow lands under the actual shape rather than under a circle.
+ */
+float islandShadow(vec3 p, vec3 L) {
+  if (L.y < 0.06) return 1.0;
+
+  float lit = 1.0;
+  for (int i = 1; i <= 7; i++) {
+    vec3 q = p + L * (float(i) * 7.0);
+    float rr = length(q.xz) / max(coastRadius(q.xz), 0.001);
+    if (rr < 1.0) {
+      // The island's profile, near enough: a dome inside the coastline.
+      float top = pow(1.0 - rr, 1.15) * 12.5;
+      lit = min(lit, smoothstep(0.0, 3.5, q.y - top));
+    }
+  }
+  return mix(0.34, 1.0, lit);
+}
+
+/** GGX. A real specular lobe is what turns a dot of sun into a glitter path. */
+float ggxSpec(vec3 N, vec3 V, vec3 L, float rough) {
+  vec3 H = normalize(V + L);
+  float a = rough * rough;
+  float a2 = a * a;
+  float ndh = max(dot(N, H), 0.0);
+  float d = ndh * ndh * (a2 - 1.0) + 1.0;
+  return a2 / (3.14159265 * d * d + 1e-5);
+}
+
+/**
+ * The sky a reflected ray lands on — gradient AND sun.
+ *
+ * Reflecting a two-colour gradient is why calm water so often looks like
+ * coloured glass: the sun is missing from the thing being reflected, so the
+ * surface can never throw it back.
+ */
+vec3 skySample(vec3 dir, vec3 sun) {
+  float h = clamp(dir.y * 0.5 + 0.5, 0.0, 1.0);
+  vec3 col = mix(uSkyBottom, uSkyTop, pow(h, 0.85));
+  float d = max(dot(dir, sun), 0.0);
+  col += uSunColor * (pow(d, 46.0) * 0.75 + pow(d, 6.0) * 0.16) * uIntensity;
+  return col;
+}
+
+/**
  * The surface seen from underneath.
  *
  * Refraction squeezes the entire sky into a cone about 48 degrees off vertical
@@ -190,20 +266,36 @@ void main() {
   // Cloud shadows drifting across the lagoon — the single most recognisable
   // feature of an aerial ocean shot, and the reason the clouds are worth
   // having at a camera angle that barely shows the sky.
-  float shade = cloudShadow(vWorldPos, L, uTime, uCoverage, 0.42, uStir);
+  float shade = cloudShadow(vWorldPos, L, uTime, uCoverage, 0.42, uStir)
+              * islandShadow(vWorldPos, L);
 
   body *= mix(vec3(1.0), waterLight * shade, 0.7);
 
+  // --- Surface detail --------------------------------------------------
+  // Ripples fade out with distance rather than being drawn at every range:
+  // held on, the sub-pixel detail turns into a shimmering mess of aliasing,
+  // which reads as noise rather than as water.
+  float viewDist = length(uCameraPos - vWorldPos);
+  float detail = 1.0 - smoothstep(30.0, 190.0, viewDist);
+  if (detail > 0.01) {
+    vec3 rip = rippleNormal(vWorldPos.xz, uTime);
+    // Calmer inside the reef, where the island shelters the water.
+    float exposure = mix(0.35, 1.0, smoothstep(0.9, 1.6, reefRatio));
+    N = normalize(mix(N, normalize(N + rip * 1.5), detail * exposure));
+  }
+
   // --- Reflection + fresnel -------------------------------------------
   vec3 R = reflect(-V, N);
-  float rh = clamp(R.y * 0.5 + 0.5, 0.0, 1.0);
-  vec3 skyRefl = mix(uSkyBottom, uSkyTop, pow(rh, 0.8));
+  vec3 skyRefl = skySample(R, L);
 
-  float fres = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 4.0);
-  fres = mix(0.03, 1.0, fres);
+  // Schlick, with water's actual F0. The old curve reflected 3% head-on and
+  // reached full mirror far too readily; 0.02 with a fifth power is why real
+  // water is glass at grazing angles and nearly clear straight down.
+  float fres = 0.02 + 0.98 * pow(1.0 - max(dot(N, V), 0.0), 5.0);
   // Shallow water is far less mirror-like — you see sand, not sky.
-  fres *= mix(1.0, 0.28, shelf);
+  fres *= mix(1.0, 0.30, shelf);
 
+  // Light through the back of a wave, strongest looking into the sun.
   float sss = pow(clamp(dot(V, -L) * 0.5 + 0.5, 0.0, 1.0), 3.0)
             * clamp(vCrest * 0.9 + 0.4, 0.0, 1.0);
   body += uSunColor * sss * 0.16 * uIntensity;
@@ -211,12 +303,13 @@ void main() {
   vec3 color = mix(body, skyRefl, fres);
 
   // --- Sun glitter ----------------------------------------------------
-  vec3 H = normalize(L + V);
-  float spec = pow(max(dot(N, H), 0.0), 220.0);
-  float wide = pow(max(dot(N, H), 0.0), 26.0) * 0.12;
+  // Roughness rises with distance, which spreads the highlight into the long
+  // shimmering path you actually see on water instead of a single hot dot.
+  float rough = mix(0.045, 0.30, smoothstep(20.0, 260.0, viewDist));
+  float spec = ggxSpec(N, V, L, rough) * max(dot(N, L), 0.0);
   // Glitter is direct sun, so it has to disappear under cloud entirely —
   // shading the body but leaving the sparkle is a classic tell.
-  color += uSunColor * (spec * 1.6 + wide) * uIntensity * shade;
+  color += uSunColor * spec * 0.055 * uIntensity * shade * fres * 14.0;
 
   // --- Foam: shoreline, and the break out on the reef ------------------
   float noiseF = fbm3(vec3(vWorldPos.xz * 0.55, uTime * 0.55)) * 0.5 + 0.5;

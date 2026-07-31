@@ -60,10 +60,39 @@ ${NOISE_GLSL}
 ${CLOUDS_GLSL}
 ${UNDERWATER_GLSL}
 
+/**
+ * Surface detail the mesh cannot hold.
+ *
+ * The terrain is a 240x240 grid over 150 units, so a quad is more than half a
+ * metre across — every grain of sand and every crack in the rock is below what
+ * the geometry can express. Perturbing the normal from noise gradients puts it
+ * back, and it is most of the difference between ground and a coloured shape.
+ */
+vec3 detailNormal(vec3 p, vec3 N, float amount) {
+  if (amount < 0.01) return N;
+  float e = 0.16;
+  float h  = fbm3(p * 2.6);
+  float hx = fbm3(p + vec3(e, 0.0, 0.0) * 2.6);
+  float hz = fbm3(p + vec3(0.0, 0.0, e) * 2.6);
+  vec3 bump = vec3(h - hx, 0.0, h - hz) * 5.5;
+
+  float f = 0.05;
+  float g  = fbm3(p * 9.5 + 13.0);
+  float gx = fbm3(p * 9.5 + vec3(f, 0.0, 0.0) + 13.0);
+  float gz = fbm3(p * 9.5 + vec3(0.0, 0.0, f) + 13.0);
+  bump += vec3(g - gx, 0.0, g - gz) * 2.2;
+
+  return normalize(N + bump * amount);
+}
+
 void main() {
   vec3 N = normalize(vNormal);
   vec3 L = normalize(uSunDir);
   vec3 V = normalize(uCameraPos - vWorldPos);
+
+  // Detail fades with distance so it never turns into aliasing.
+  float viewDist = length(uCameraPos - vWorldPos);
+  N = detailNormal(vWorldPos, N, (1.0 - smoothstep(20.0, 120.0, viewDist)) * 0.65);
 
   float slope = 1.0 - clamp(N.y, 0.0, 1.0);
   float grain = fbm3(vWorldPos * 0.35) * 0.5 + 0.5;
@@ -113,12 +142,31 @@ void main() {
   // Same cloud field the sky draws, so shadows land under actual clouds.
   float shade = cloudShadow(vWorldPos, L, uTime, uCoverage, 0.45, uStir);
 
+  // Wet sand: a band that the water has just been over. It is darker, smoother
+  // and it shines — the single cue that separates a beach from a sand-coloured
+  // slope, and it sits exactly where the shore foam breaks.
+  float wet = (1.0 - smoothstep(0.05, 1.35, vHeight)) * (1.0 - smoothstep(0.4, 0.75, slope));
+  albedo *= mix(1.0, 0.62, wet);
+
   vec3 diffuse = uSunColor * wrapped * uIntensity * shade;
   vec3 ambient = uAmbient * ao * 0.85;
 
   // Rim light picks out the silhouette against the sky when the sun is behind.
   float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0) * max(dot(-V, L) * 0.5 + 0.5, 0.0);
   vec3 color = albedo * (diffuse + ambient) + uSunColor * rim * 0.35 * uIntensity;
+
+  // Specular. Dry sand and rock are rough and barely glint; wet sand is close
+  // to a mirror. One lobe, with roughness driven by how wet the ground is.
+  vec3 H = normalize(L + V);
+  float rough = mix(0.62, 0.16, wet);
+  float a = rough * rough;
+  float a2 = a * a;
+  float ndh = max(dot(N, H), 0.0);
+  float dTerm = ndh * ndh * (a2 - 1.0) + 1.0;
+  float ggx = a2 / (3.14159265 * dTerm * dTerm + 1e-5);
+  float fres = 0.03 + 0.97 * pow(1.0 - max(dot(N, V), 0.0), 5.0);
+  color += uSunColor * ggx * fres * max(dot(N, L), 0.0)
+         * mix(0.05, 0.55, wet) * uIntensity * shade;
 
   // --- Fog ------------------------------------------------------------
   float dist = length(uCameraPos - vWorldPos);
