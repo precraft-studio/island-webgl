@@ -1,0 +1,17 @@
+---
+interface Props { chapters: { eyebrow: string; heading: string }[] }
+const { chapters } = Astro.props;
+---
+
+{
+  chapters.length > 1 && (
+    <nav class="chapters-nav" aria-label="Chapters">
+      {chapters.map((c, i) => (
+        <a href={`#chapter-${i}`} class="chapter-link">
+          <span class="chapter-dot" aria-hidden="true" />
+          <span class="chapter-label">{c.eyebrow.replace(/^\d+\s*—\s*/, '')}</span>
+        </a>
+      ))}
+    </nav>
+  )
+}

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { state, EVENTS } from './state.js';
 import { Atmosphere } from './Atmosphere.js';
 import { IslandScene } from './IslandScene.js';
+import { SECTIONS } from '../config/sections.js';
 
 /**
  * The engine. Owns the renderer, the camera and the frame loop, and knows
@@ -13,10 +14,10 @@ class App {
     this.ready = false;
     this.atmosphere = new Atmosphere();
 
-    // Drag state: `target` jumps, `current` chases it — this gap is the inertia.
-    // Opens at midday: the first frame should be the bright Fiji reading, not
-    // the dawn end of the palette. Keep in sync with INITIAL_SLIDE in drag.js.
-    this.slide = { target: 0.28, current: 0.28 };
+    // Fractional section index (0..SECTIONS.length-1). `target` jumps, `current`
+    // chases it — that gap is what makes the carousel feel weighted rather than
+    // stepped, and what carries the scene through the route change.
+    this.slide = { target: 0, current: 0 };
     this.scroll = { target: 0, current: 0 };
 
     this.clock = new THREE.Clock();
@@ -106,7 +107,13 @@ class App {
     const sc = this.scroll.current;
 
     // --- Atmosphere ----------------------------------------------------
-    this.atmosphere.update(s);
+    // Each section carries its own time of day, and dragging interpolates
+    // between neighbours — the same idea as the reference site baking a
+    // different lightmap per page, but computed instead of stored.
+    const i0 = THREE.MathUtils.clamp(Math.floor(s), 0, SECTIONS.length - 1);
+    const i1 = Math.min(i0 + 1, SECTIONS.length - 1);
+    const sun = THREE.MathUtils.lerp(SECTIONS[i0].sun, SECTIONS[i1].sun, s - i0);
+    this.atmosphere.update(sun);
     const u = this.world.shared;
     u.uSunDir.value.copy(this.atmosphere.sunDir);
     u.uSunColor.value.copy(this.atmosphere.sunColor);
@@ -119,10 +126,10 @@ class App {
     u.uTime.value = this.clock.getElapsedTime();
 
     // --- Camera --------------------------------------------------------
-    // Orbit rate (0.85) deliberately differs from the sun's sweep rate (1.0).
-    // If they matched, the sun would be locked to the camera and the light
-    // would never appear to move across the island.
-    const az = s * Math.PI * 2 * 0.85;
+    // One full turn spread across the five sections — 72° apart. The sun is
+    // set per section rather than by this angle, so the light is never locked
+    // to the camera.
+    const az = (s / SECTIONS.length) * Math.PI * 2;
     // Opens high enough to read the heart from the air (~50° elevation), then
     // dives to sea level as you scroll. The shape IS the subject, so the first
     // frame has to show it.

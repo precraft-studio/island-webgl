@@ -1,0 +1,21 @@
+---
+import { SECTIONS, pathFor } from '../config/sections.js';
+
+const current = Astro.url.pathname;
+---
+
+<!-- The five detents. Clicking is the accessible equivalent of dragging to a
+     section: both end up on the same route, and the scene turns either way. -->
+<nav class="section-nav" aria-label="Sections">
+  {
+    SECTIONS.map((s, i) => (
+      <a
+        href={pathFor(i)}
+        class:list={['section-link', { 'is-current': pathFor(i) === current }]}
+        aria-current={pathFor(i) === current ? 'page' : undefined}
+      >
+        {s.nav}
+      </a>
+    ))
+  }
+</nav>

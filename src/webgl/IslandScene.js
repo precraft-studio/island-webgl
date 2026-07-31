@@ -181,6 +181,7 @@ export class IslandScene {
         uSkyTop: this.shared.uSkyTop,
         uSkyBottom: this.shared.uSkyBottom,
         uWaterColor: this.shared.uWaterColor,
+        uAmbient: this.shared.uAmbient,
         uFogColor: this.shared.uFogColor,
         uCameraPos: this.shared.uCameraPos,
         uIntensity: this.shared.uIntensity,

@@ -18,9 +18,32 @@ npm install
 npm run dev
 ```
 
-Then: **drag horizontally** across the hero, **scroll** to approach the island,
-and **navigate between Home and About** — the scene keeps its rotation, its
-light and its wave phase, because the canvas is never rebuilt.
+Then: **drag horizontally** across the hero to turn between the five sections,
+and **scroll** to move through the chapters of whichever section you landed on.
+
+## The interaction model
+
+Horizontal drag is **not free rotation** — it is a carousel of five detents,
+and each detent is a route:
+
+| Index | Route | Section |
+|---|---|---|
+| 0 | `/` | The Island |
+| 1 | `/reef/` | The Reef |
+| 2 | `/lagoon/` | The Lagoon |
+| 3 | `/canopy/` | The Canopy |
+| 4 | `/horizon/` | The Horizon |
+
+While the pointer is down the scene follows a *fractional* index so rotation
+tracks the finger. On release it snaps to the nearest section and navigates —
+the canvas persists, so the world turns into place rather than reloading.
+`--slide-progress` carries the settled integer index; the engine receives the
+continuous value separately. Vertical scroll then belongs entirely to the
+chapters of the current section.
+
+All five come from one config (`src/config/sections.js`), which also feeds the
+Astro routes and the nav, so they can never disagree about how many sections
+exist or what order they are in.
 
 ---
 
@@ -28,7 +51,8 @@ light and its wave phase, because the canvas is never rebuilt.
 
 | Mechanism | Where | Status |
 |---|---|---|
-| Drag → one scalar → scene rotation **and** light sweep | `scripts/drag.js` → `webgl/Atmosphere.js` | ✅ |
+| Drag → snap between five sections, each a route | `scripts/drag.js` + `config/sections.js` | ✅ |
+| Per-section time of day, interpolated while dragging | `webgl/GlobalApp.js` → `webgl/Atmosphere.js` | ✅ |
 | Inertia / damping on drag and scroll | `webgl/GlobalApp.js` (`damp()`) | ✅ |
 | Animated ocean: swells, normals, fresnel, sun glitter, foam | `webgl/shaders/water.js` | ✅ |
 | Scroll → parallax (DOM) + camera dolly (3D), one source | `scripts/scroll.js` | ✅ |

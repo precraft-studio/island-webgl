@@ -1,5 +1,6 @@
 ---
 import { ClientRouter } from 'astro:transitions';
+import SectionNav from '../components/SectionNav.astro';
 import '../styles/global.css';
 
 interface Props { title?: string }
@@ -31,11 +32,8 @@ const { title = 'Island — Phase 0' } = Astro.props;
     <div class="cursor-dot" transition:persist="cursor-dot" aria-hidden="true"></div>
 
     <header class="site-head">
-      <a href="/">Island</a>
-      <nav>
-        <a href="/">Home</a>
-        <a href="/about">About</a>
-      </nav>
+      <a class="wordmark" href="/">Island</a>
+      <SectionNav />
     </header>
 
     <main class="page"><slot /></main>

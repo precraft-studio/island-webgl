@@ -74,6 +74,7 @@ uniform vec3 uSunColor;
 uniform vec3 uSkyTop;
 uniform vec3 uSkyBottom;
 uniform vec3 uWaterColor;
+uniform vec3 uAmbient;
 uniform vec3 uFogColor;
 uniform vec3 uCameraPos;
 uniform float uIntensity;
@@ -126,6 +127,17 @@ void main() {
 
   // Darker coral heads scattered over the flat.
   body = mix(body, body * 0.72, reef * smoothstep(0.62, 0.86, coral) * 0.55);
+
+  // The band colours above are albedo, not final colour. Light them with the
+  // same sun as everything else — otherwise the lagoon stays midday-turquoise
+  // under a dusk sky, which is the exact incoherence this project exists to
+  // avoid.
+  // Partial, not full: a straight multiply crushes the lagoon to mud at golden
+  // hour and throws away the turquoise entirely. 70% of the light lets the
+  // water shift warm and dark with the sky while keeping its own identity.
+  float sunUp = max(uSunDir.y, 0.0);
+  vec3 waterLight = uSunColor * (0.55 + 0.45 * sunUp) * uIntensity + uAmbient * 0.28;
+  body *= mix(vec3(1.0), waterLight, 0.7);
 
   // --- Reflection + fresnel -------------------------------------------
   vec3 R = reflect(-V, N);

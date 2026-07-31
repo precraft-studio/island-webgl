@@ -1,0 +1,51 @@
+---
+import Layout from '../layouts/Layout.astro';
+import ChaptersNav from '../components/ChaptersNav.astro';
+import { SECTIONS } from '../config/sections.js';
+
+export function getStaticPaths() {
+  return SECTIONS.map((section, index) => ({
+    params: { slug: section.slug || undefined },
+    props: { section, index },
+  }));
+}
+
+const { section, index } = Astro.props;
+---
+
+<Layout title={`${section.nav} — Island`}>
+  <div data-scroll-root data-section-index={index}>
+    <!-- The hero IS the drag surface: one element carries data-cursor and owns
+         --slide-progress, exactly as on the reference site. -->
+    <section class="hero" data-cursor="draggable" data-chapter tabindex="0">
+      <div class="hero-copy">
+        <p class="hero-tagline" data-reveal data-parallax="1.2">{section.tagline}</p>
+        <h1 data-reveal data-parallax="1.6">{section.title}</h1>
+      </div>
+
+      <div class="hero-hint">
+        <span>Drag to turn</span>
+        <span><b data-slide-readout>{section.nav}</b></span>
+        <span>Scroll for more</span>
+      </div>
+    </section>
+
+    {
+      section.chapters.map((chapter, i) => (
+        <section class="chapter" id={`chapter-${i}`} data-chapter>
+          <div class="panel" data-parallax="0.5">
+            <div class="eyebrow" data-reveal>{chapter.eyebrow}</div>
+            <h2 data-reveal>{chapter.heading}</h2>
+            {chapter.body.map((p) => <p data-reveal>{p}</p>)}
+          </div>
+        </section>
+      ))
+    }
+
+    <footer class="foot">
+      Drag left or right to turn the island — the canvas never reloads
+    </footer>
+  </div>
+
+  <ChaptersNav chapters={section.chapters} />
+</Layout>
