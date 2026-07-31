@@ -5,6 +5,8 @@ import { SKY_VERT, SKY_FRAG } from './shaders/sky.js';
 import { TERRAIN_VERT, TERRAIN_FRAG } from './shaders/terrain.js';
 import { WATER_VERT, WATER_FRAG } from './shaders/water.js';
 import { Seabed } from './Seabed.js';
+import { Flora } from './Flora.js';
+import { Sailboat } from './Sailboat.js';
 
 /** World-space radius of the coastline at its widest point. */
 export const ISLAND_RADIUS = 34;
@@ -90,6 +92,12 @@ export class IslandScene {
     this.seabed = new Seabed(this.shared);
     this.scene.add(this.seabed.group);
 
+    this.flora = new Flora(this.shared);
+    this.scene.add(this.flora.group);
+
+    this.boat = new Sailboat(this.shared);
+    this.scene.add(this.boat.group);
+
     this.#buildSky();
     this.#buildTerrain();
     this.#buildWater();
@@ -129,10 +137,16 @@ export class IslandScene {
   /** Called on navigation: rebuild the reef population for this section. */
   applySection(section) {
     this.seabed.populate(section.life);
+    this.flora.populate(section.flora);
+    // Only the sailing section carries a boat; only the close-approach section
+    // pays for vegetation.
+    this.flora.setActive(!!section.flora);
+    this.boat.setActive(section.journey === 'sail');
   }
 
-  update(dt, cameraY) {
+  update(dt, cameraY, time) {
     this.seabed.update(dt, cameraY);
+    this.boat.update(dt, time);
   }
 
   #buildSky() {
