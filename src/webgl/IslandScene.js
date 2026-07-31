@@ -144,9 +144,9 @@ export class IslandScene {
     this.boat.setActive(section.journey === 'sail');
   }
 
-  update(dt, cameraY, time) {
+  update(dt, cameraY, time, cameraPos) {
     this.seabed.update(dt, cameraY);
-    this.boat.update(dt, time);
+    this.boat.update(dt, time, cameraPos);
   }
 
   #buildSky() {

@@ -206,7 +206,7 @@ class App {
     const submerged = THREE.MathUtils.smoothstep(-this.camera.position.y, -0.8, 0.8);
     u.uUnderwater.value = submerged;
     this.world.setUnderwater(submerged, this.camera.position.y);
-    this.world.update(dt, this.camera.position.y, u.uTime.value);
+    this.world.update(dt, this.camera.position.y, u.uTime.value, this.camera.position);
 
     // Populate the reef for whichever section the carousel has settled on.
     // Doing this on change rather than per frame keeps the instance rebuild

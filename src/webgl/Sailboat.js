@@ -23,8 +23,24 @@ export class Sailboat {
     this.group = new THREE.Group();
     this.group.visible = false;
 
-    // Sails a wide, slow circuit out in the lagoon.
-    this.orbit = { radius: 96, angle: 1.1, speed: 0.028 };
+    /**
+     * The boat sails across the view, not around the island.
+     *
+     * A fixed world circuit put it at a radius greater than the camera's, which
+     * means behind the viewer — technically sailing, never seen. Its track is
+     * therefore held between the camera and the island, and its bearing is
+     * offset from the camera's own, so it crosses the frame and comes round
+     * again instead of wandering out of shot.
+     */
+    this.track = {
+      radius: 44,   // camera sits at ~72, so this passes ~28 units in front
+      cross: -0.38, // bearing offset from the camera, in radians
+      // Span is deliberately wider than the frame. Measured half-FOV here is
+      // ~22 degrees and ±0.38 puts the boat at ~28, so it sails out of shot
+      // before the track loops — otherwise the wrap is a visible teleport.
+      span: 0.38,
+      speed: 0.05,  // ~15s to cross
+    };
     this.time = 0;
 
     this.#build();
@@ -158,34 +174,50 @@ export class Sailboat {
     this.group.visible = on;
   }
 
-  update(dt, time) {
+  update(dt, time, cameraPos) {
     if (!this.group.visible) return;
     this.time = time;
 
-    this.orbit.angle += this.orbit.speed * dt;
-    const a = this.orbit.angle;
-    const r = this.orbit.radius;
-    const x = Math.cos(a) * r;
-    const z = Math.sin(a) * r;
+    const t = this.track;
+    t.cross += t.speed * dt;
+    // Loop the crossing rather than reversing it: a boat that sails out of
+    // frame and comes back the other way reads as a pendulum, not a boat.
+    if (t.cross > t.span) t.cross = -t.span;
+
+    // Bearing is measured from wherever the camera is standing, so the track
+    // stays in front of the viewer whichever section the carousel has settled
+    // on. Falls back to a fixed bearing before the first camera update.
+    const camAz = cameraPos ? Math.atan2(cameraPos.x, cameraPos.z) : 0;
+    const a = camAz + t.cross;
+    const r = t.radius;
+    // atan2(x, z) measures from +Z, so the position uses sin for x.
+    const x = Math.sin(a) * r;
+    const z = Math.cos(a) * r;
 
     // Ride the swell — the same one the water shader displaces with.
     const y = swellHeight(x, z, time);
     // Sink the hull so the chop it ignores breaks over it rather than under.
     this.group.position.set(x, y - CHOP_AMPLITUDE * 0.6, z);
 
-    // Heading is the tangent of the circuit.
+    // Heading: the tangent of the track it is on. The hull's bow is local +Z,
+    // which a Y rotation of θ sends to (sin θ, cos θ).
     const heading = a + Math.PI / 2;
-    this.group.rotation.y = -heading;
+    this.group.rotation.y = heading;
 
-    // Pitch and roll from the swell's slope, plus a steady heel from the wind.
+    const fwdX = Math.sin(heading);
+    const fwdZ = Math.cos(heading);
+    const rightX = Math.cos(heading);
+    const rightZ = -Math.sin(heading);
+
+    // Pitch and roll from the slope of the swell under the hull, plus a steady
+    // heel from the wind. Reading the boat's attitude off the same surface it
+    // floats on is what stops it looking like a decal sliding over the water.
     const n = swellNormal(x, z, time);
-    const cosH = Math.cos(heading);
-    const sinH = Math.sin(heading);
-    const slopeAlong = -n.x * sinH - n.z * cosH;
-    const slopeAcross = n.x * cosH - n.z * sinH;
+    const along = n.x * fwdX + n.z * fwdZ;
+    const across = n.x * rightX + n.z * rightZ;
 
-    this.hull.rotation.x = slopeAlong * 0.5;
-    this.hull.rotation.z = slopeAcross * 0.5 + 0.13;
+    this.hull.rotation.x = along * 0.55;
+    this.hull.rotation.z = -across * 0.55 + 0.13;
 
     this.wake.position.y = 0.06;
   }
