@@ -1,5 +1,28 @@
-/** Shared GLSL: gradient noise + fbm, injected into every shader. */
+/**
+ * Shared GLSL: gradient noise + fbm, injected into every shader.
+ *
+ * NO BACKTICKS anywhere below — the whole block is a template literal, and one
+ * backtick in a comment closes it and takes the entire import graph down with
+ * no console error at all: the layout script simply never runs and the page
+ * sits on the loader forever.
+ */
 export const NOISE_GLSL = /* glsl */ `
+/**
+ * This is called 352 times per terrain pixel — eight per gnoise, four octaves
+ * of gnoise per fbm3, eleven fbm3 per fragment — so it looks like the obvious
+ * thing to optimise, and the sin() looks like the obvious thing to remove.
+ *
+ * It was measured. Swapping in the usual fract-multiply hash (Dave Hoskins'
+ * hash33) made the frame 15% SLOWER on an Intel UHD 630: transcendentals run on
+ * a dedicated unit that is otherwise idle here, while the fract version is a
+ * chain of dependent multiplies competing for the same ALU as everything else
+ * in the shader. The intuition that sin is expensive is a CPU intuition.
+ *
+ * Left alone deliberately. If this is ever revisited, measure it with
+ * EXT_disjoint_timer_query on the target hardware — wall-clock timing around
+ * readPixels was too noisy on this machine to tell the two apart, and would
+ * have supported either conclusion.
+ */
 vec3 hash33(vec3 p){
   p = vec3(dot(p, vec3(127.1, 311.7, 74.7)),
            dot(p, vec3(269.5, 183.3, 246.1)),

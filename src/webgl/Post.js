@@ -23,11 +23,23 @@ export class Post {
     // Half float so highlights can exceed 1.0 and still be there for the
     // bloom pass to find. On an 8-bit target everything bright clips to white
     // first and there is nothing left to isolate.
+    /**
+     * 4x MSAA on a half-float target is a desktop luxury.
+     *
+     * Every sample is an RGBA16F sample — eight bytes — so the resolve moves
+     * four times the bandwidth of the frame itself. A phone screen is already
+     * dense enough that the edges this smooths are near the limit of what can
+     * be seen on it, and the resolution the bandwidth buys back is worth far
+     * more than the edge quality it costs.
+     */
+    const coarse =
+      typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+
     this.composer = new EffectComposer(
       renderer,
       new THREE.WebGLRenderTarget(1, 1, {
         type: THREE.HalfFloatType,
-        samples: 4,
+        samples: coarse ? 0 : 4,
       })
     );
 

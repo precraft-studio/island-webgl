@@ -70,7 +70,24 @@ ${SHADOW_GLSL}
  * the geometry can express. Perturbing the normal from noise gradients puts it
  * back, and it is most of the difference between ground and a coloured shape.
  */
-vec3 detailNormal(vec3 p, vec3 N, float amount) {
+/**
+ * Two scales, and they do NOT fade out together.
+ *
+ * Each scale costs three fbm3 calls, because a gradient by finite difference
+ * needs the centre sample and one per axis. Six calls is the single most
+ * expensive thing in this shader, so the question is how far away each scale
+ * is still worth paying for.
+ *
+ * The coarse scale is undulation a half-metre quad cannot hold, and it reads
+ * across the whole island. The fine scale is grain — at a frequency of 9.5 its
+ * features are ~10cm, which is under a pixel by about thirty units out, where
+ * it stops being detail and becomes noise for the mipmap chain to fight. It
+ * used to fade on the same 20..120 ramp as the coarse scale, so most of the
+ * island on screen was paying three fbm3 calls for something it could not
+ * show. Ending it at 40 drops those calls for everything beyond, which on a
+ * wide shot is nearly all of the island.
+ */
+vec3 detailNormal(vec3 p, vec3 N, float amount, float viewDist) {
   if (amount < 0.01) return N;
   float e = 0.16;
   float h  = fbm3(p * 2.6);
@@ -78,11 +95,14 @@ vec3 detailNormal(vec3 p, vec3 N, float amount) {
   float hz = fbm3(p + vec3(0.0, 0.0, e) * 2.6);
   vec3 bump = vec3(h - hx, 0.0, h - hz) * 5.5;
 
-  float f = 0.05;
-  float g  = fbm3(p * 9.5 + 13.0);
-  float gx = fbm3(p * 9.5 + vec3(f, 0.0, 0.0) + 13.0);
-  float gz = fbm3(p * 9.5 + vec3(0.0, 0.0, f) + 13.0);
-  bump += vec3(g - gx, 0.0, g - gz) * 2.2;
+  float fine = 1.0 - smoothstep(14.0, 40.0, viewDist);
+  if (fine > 0.01) {
+    float f = 0.05;
+    float g  = fbm3(p * 9.5 + 13.0);
+    float gx = fbm3(p * 9.5 + vec3(f, 0.0, 0.0) + 13.0);
+    float gz = fbm3(p * 9.5 + vec3(0.0, 0.0, f) + 13.0);
+    bump += vec3(g - gx, 0.0, g - gz) * 2.2 * fine;
+  }
 
   return normalize(N + bump * amount);
 }
@@ -94,7 +114,7 @@ void main() {
 
   // Detail fades with distance so it never turns into aliasing.
   float viewDist = length(uCameraPos - vWorldPos);
-  N = detailNormal(vWorldPos, N, (1.0 - smoothstep(20.0, 120.0, viewDist)) * 0.65);
+  N = detailNormal(vWorldPos, N, (1.0 - smoothstep(20.0, 120.0, viewDist)) * 0.65, viewDist);
 
   float slope = 1.0 - clamp(N.y, 0.0, 1.0);
   float grain = fbm3(vWorldPos * 0.35) * 0.5 + 0.5;

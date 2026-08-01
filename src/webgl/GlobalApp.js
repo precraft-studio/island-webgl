@@ -7,6 +7,7 @@ import { sampleJourney } from './journeys.js';
 import { Post } from './Post.js';
 import { SkyEnv } from './SkyEnv.js';
 import { SunShadow } from './SunShadow.js';
+import { createResolutionState, feedFrame } from './resolution.js';
 
 /**
  * The engine. Owns the renderer, the camera and the frame loop, and knows
@@ -33,6 +34,23 @@ class App {
     this._shadowFrame = 0;
     this.clock = new THREE.Clock();
     this.sizes = { width: 1, height: 1, dpr: 1 };
+
+    /**
+     * Resolution scale, adjusted at runtime from the frame rate the device is
+     * actually achieving.
+     *
+     * There is no device list here and no attempt to guess from the user agent,
+     * because the thing that matters — how many of these fragments this GPU can
+     * shade per second, right now, at this thermal state — cannot be looked up.
+     * A phone that is fine on the first page can be throttled to half speed four
+     * minutes later, and a laptop on battery does the same. So the frame time
+     * is the input, and this is the output.
+     */
+    this.res = createResolutionState({
+      coarse:
+        typeof window !== 'undefined' &&
+        window.matchMedia?.('(pointer: coarse)').matches,
+    });
 
     this.#bind();
   }
@@ -128,11 +146,12 @@ class App {
       ? Math.sqrt(1.8e6 / Math.max(width * height, 1))
       : Infinity;
 
-    return {
-      width,
-      height,
-      dpr: Math.max(1, Math.min(window.devicePixelRatio || 1, 2, byBudget)),
-    };
+    const capped = Math.max(1, Math.min(window.devicePixelRatio || 1, 2, byBudget));
+
+    // The adaptive scale multiplies the cap rather than replacing it, and is
+    // allowed below 1 — a phone that cannot hold the budget at 1x is better off
+    // soft than stuttering.
+    return { width, height, dpr: capped * this.res.scale };
   }
 
   resize(info = this.viewportInfo()) {
@@ -196,7 +215,15 @@ class App {
   }
 
   tick() {
-    const dt = Math.min(this.clock.getDelta(), 0.1);
+    // Raw first: the clamp below exists to keep the damping stable across a
+    // stall, but it would also disguise every stall as a 100ms frame and have
+    // the resolution controller chase tab switches.
+    const raw = this.clock.getDelta();
+    const dt = Math.min(raw, 0.1);
+
+    if (feedFrame(this.res, raw * 1000, this.clock.elapsedTime) !== null) {
+      this.resize(this.viewportInfo());
+    }
 
     // Frame-rate independent damping. `k` is the per-60fps-frame catch-up
     // fraction; the pow() keeps the feel identical at 120Hz and 30Hz.

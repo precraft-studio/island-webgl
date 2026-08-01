@@ -110,6 +110,32 @@ vec2 cloudStir(vec2 p, vec2 centre, float radius, float strength) {
 }
 
 /**
+ * Depth again, for shadows only — same field, a third of the cost.
+ *
+ * cloudDepth runs cloudFbm, which spends two of its three fbm calls warping the
+ * sample point to give the deck torn edges and wisps. That detail is the
+ * difference between cloud and a blob when you are looking at the sky. It is
+ * invisible in a shadow cast from 300 units up onto sand: the projection is
+ * soft, the ground is textured, and nobody has the original to compare against.
+ *
+ * So shadows read the unwarped field. Four fbm3 calls become two, on every
+ * terrain and water fragment on screen — which is the majority of the frame.
+ * The systems term is kept, because that is what decides where there is cloud
+ * at all, and dropping it would put shadows under clear sky.
+ */
+float cloudShadowDepth(vec2 p, float t, float coverage) {
+  float systems = fbm3(vec3(p * 0.21, t * 0.012)) * 0.5 + 0.5;
+  float where = smoothstep(0.50 - coverage * 0.26, 0.70 - coverage * 0.22, systems);
+  if (where <= 0.001) return 0.0;
+
+  float base = fbm3(vec3(p * 0.55, t * 0.03)) * 0.5 + 0.5;
+  float lift = base - (0.545 - coverage * 0.10);
+  if (lift <= 0.0) return 0.0;
+
+  return lift * 7.0 * where;
+}
+
+/**
  * Shadow multiplier for a point on the ground.
  *
  * Walks from the surface toward the sun until it reaches the deck, then reads
@@ -128,7 +154,7 @@ float cloudShadow(vec3 worldPos, vec3 sunDir, float t, float coverage,
 
   // Opacity, so a thin margin barely dims the ground and a dense core throws
   // a real shadow — the same variation the sky is drawing.
-  float d = cloudOpacity(cloudDepth(p, t, coverage));
+  float d = cloudOpacity(cloudShadowDepth(p, t, coverage));
   return 1.0 - d * strength;
 }
 `;

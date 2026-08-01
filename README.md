@@ -136,11 +136,42 @@ sweep entirely, which is the signature effect.
 
 ## Performance notes
 
+This scene is **fragment-bound**. Measured with `EXT_disjoint_timer_query` at a
+390×844 frame on an Intel UHD 630 — roughly a mid-range phone's shading power:
+
+| device ratio | Mpx | GPU ms | fps |
+|---|---|---|---|
+| 2.0 | 1.32 | 120.6 | 8 |
+| 1.5 | 0.74 | 75.6 | 13 |
+| 1.0 | 0.33 | 47.9 | 21 |
+| 0.75 | 0.19 | 31.1 | 32 |
+| 0.6 | 0.12 | 22.9 | 44 |
+| 0.5 | 0.08 | 18.4 | 54 |
+
+Least squares: **11.8 ms fixed + 82.4 ms per megapixel**. Resolution is the only
+lever with that kind of range, which is why the controller below exists.
+
+- **Adaptive resolution** (`webgl/resolution.js`). The control law is a pure
+  function of (state, frame time) so it can be run against devices this machine
+  is not: `node scripts/resolution-sim.mjs` drives it through five device
+  profiles and a thermal throttle. `node scripts/resolution-wiring.test.mjs`
+  checks the four lines in `tick()` that feed it — seconds-vs-milliseconds,
+  raw-vs-clamped delta, and whether the canvas actually follows the scale.
+  Touch devices **start at 0.6 and climb**: opening at full ratio means a slow
+  phone spends its first seconds at 8fps, which is all a visitor sees before
+  deciding the site is broken.
 - Device pixel ratio is capped at **2**, and on coarse pointers a **1.8 Mpx
-  drawing-buffer budget** rides alongside it. The scene is fragment-bound, so
-  cost tracks the buffer, not the CSS size — a ratio cap alone says nothing
-  about a large tablet that already exceeds a mobile GPU at 2x. Mobile runs the
-  full 3D scene with no 2D fallback, so both caps matter.
+  drawing-buffer budget** rides alongside it. A ratio cap alone says nothing
+  about a large tablet that already exceeds a mobile GPU at 2x.
+- **4x MSAA is desktop-only.** Every sample is RGBA16F — eight bytes — so the
+  resolve moves four times the bandwidth of the frame itself.
+- Bloom is **not** the problem, despite looking like it: 0.38 ms at a phone
+  frame. The cost is the main scene's fragment shaders.
+- The `sin`-based hash in `shaders/common.js` runs 352 times per terrain pixel
+  and looks like the obvious thing to optimise. It was measured: the usual
+  fract-multiply replacement was **15% slower** on this GPU. Transcendentals run
+  on a dedicated unit that is otherwise idle here. Don't "fix" it without a
+  timer query on the target hardware.
 - Framing is held **horizontally**. `fov` is the vertical angle, so a fixed
   value narrows the horizontal view as the window gets taller and every camera
   distance in `journeys.js` goes wrong at once on a phone. The vertical angle is
