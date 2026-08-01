@@ -37,10 +37,17 @@ npx astro build
 # directory, which is every script and stylesheet the site has.
 cp -r dist/. "$STAGE"/
 
+# Carry the identity across explicitly. The staging repo is created from
+# scratch in a temp directory, so it inherits nothing from this one, and git
+# refuses to commit with the hostname-derived address it falls back to.
+NAME="$(git -C "$OLDPWD" config user.name || git config --global user.name)"
+EMAIL="$(git -C "$OLDPWD" config user.email || git config --global user.email)"
+
 cd "$STAGE"
 git init -q -b gh-pages
 git add -A
-git commit -q -m "deploy: built site from master ${SHA}"
+git -c user.name="$NAME" -c user.email="$EMAIL" \
+    commit -q -m "deploy: built site from master ${SHA}"
 git push --force --quiet "$REPO" gh-pages:gh-pages
 
 echo "deployed ${SHA} → https://precraft-studio.github.io/island-webgl/"
