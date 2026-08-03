@@ -284,8 +284,23 @@ class App {
     // Pointer parallax. Deliberately tiny — a few degrees of swing and a metre
     // or two of lift. Large enough to register as the world responding, small
     // enough that it never feels like a camera control.
-    this.pointer.x += (this.pointer.tx - this.pointer.x) * 0.045;
-    this.pointer.y += (this.pointer.ty - this.pointer.y) * 0.045;
+    /**
+     * Frame-rate compensated, and roughly twice as quick as it was.
+     *
+     * This was a bare per-frame fraction while slide and scroll above were
+     * already compensated — so it was the one piece of smoothing in the engine
+     * that got SLOWER as the device got slower. 0.045 a frame is 360ms to 63%
+     * at 60fps, 480ms at 45, 720ms at 30: worst exactly where the frame rate
+     * was already the problem. And of everything here it is the one the visitor
+     * tests without meaning to, by moving the mouse and watching for an answer.
+     *
+     * The rate is now per second, so it holds at any frame rate. 5/s matches
+     * the reference site, which runs lerp(mouse, dt * 5) — about 190ms, against
+     * the 360 this was managing at its best.
+     */
+    const pf = 1 - Math.exp(-5 * dt);
+    this.pointer.x += (this.pointer.tx - this.pointer.x) * pf;
+    this.pointer.y += (this.pointer.ty - this.pointer.y) * pf;
     const px = this.pointer.x;
     const py = this.pointer.y;
 
