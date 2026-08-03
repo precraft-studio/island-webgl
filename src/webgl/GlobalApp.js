@@ -218,10 +218,23 @@ class App {
     // Raw first: the clamp below exists to keep the damping stable across a
     // stall, but it would also disguise every stall as a 100ms frame and have
     // the resolution controller chase tab switches.
+    /**
+     * getDelta ONCE per frame, and read elapsed off the clock afterwards.
+     *
+     * THREE.Clock.getElapsedTime() calls getDelta() internally. This tick used
+     * to call both — getDelta here, getElapsedTime further down for uTime — so
+     * the second call consumed a slice of the frame and the NEXT frame's delta
+     * was short by however long the work between them took. Everything reading
+     * dt was quietly affected: the damping ran slower in wall-clock terms than
+     * its constants say, and the resolution controller was fed frame times
+     * lower than the real ones, which is the direction that makes a struggling
+     * device look like it is coping.
+     */
     const raw = this.clock.getDelta();
+    const elapsed = this.clock.elapsedTime;
     const dt = Math.min(raw, 0.1);
 
-    if (feedFrame(this.res, raw * 1000, this.clock.elapsedTime) !== null) {
+    if (feedFrame(this.res, raw * 1000, elapsed) !== null) {
       this.resize(this.viewportInfo());
     }
 
@@ -260,7 +273,7 @@ class App {
     u.uFogColor.value.copy(this.atmosphere.fogColor);
     u.uWaterColor.value.copy(this.atmosphere.waterColor);
     u.uIntensity.value = this.atmosphere.intensity;
-    u.uTime.value = this.clock.getElapsedTime();
+    u.uTime.value = elapsed;   // NOT getElapsedTime() — see the note at the top of tick()
 
     // --- Camera --------------------------------------------------------
     // One full turn spread across the five sections — 72° apart. The sun is
@@ -285,20 +298,25 @@ class App {
     // or two of lift. Large enough to register as the world responding, small
     // enough that it never feels like a camera control.
     /**
-     * Frame-rate compensated, and roughly twice as quick as it was.
+     * A drift, not a follow. Rate per second, so it holds at any frame rate.
      *
-     * This was a bare per-frame fraction while slide and scroll above were
-     * already compensated — so it was the one piece of smoothing in the engine
-     * that got SLOWER as the device got slower. 0.045 a frame is 360ms to 63%
-     * at 60fps, 480ms at 45, 720ms at 30: worst exactly where the frame rate
-     * was already the problem. And of everything here it is the one the visitor
-     * tests without meaning to, by moving the mouse and watching for an answer.
+     * This was a bare per-frame fraction while slide and scroll above were both
+     * compensated, which made it the one piece of smoothing in the engine that
+     * got SLOWER as the device did: 360ms to 63% at 60fps, 480 at 45, 720 at
+     * 30. That part was simply a bug.
      *
-     * The rate is now per second, so it holds at any frame rate. 5/s matches
-     * the reference site, which runs lerp(mouse, dt * 5) — about 190ms, against
-     * the 360 this was managing at its best.
+     * The rate took two goes. 5/s was matched to the reference's
+     * lerp(mouse, dt * 5) — but that value drives its CURSOR ELEMENT, a DOM
+     * node it translates under the pointer, and not its camera. The camera runs
+     * lerp(mouse, dt * 0.5) from the raw pointer, ten times slower, and its
+     * rotational swing is 0.05 rad — the same as ours. So 0.5/s it is.
+     *
+     * Two seconds sounds broken written down. It is not what it is for: at this
+     * rate the camera never appears to track the pointer, it just is not quite
+     * where it was a moment ago. A follow the visitor can perceive as a follow
+     * reads as a camera control, which is the one thing this must not be.
      */
-    const pf = 1 - Math.exp(-5 * dt);
+    const pf = 1 - Math.exp(-0.5 * dt);
     this.pointer.x += (this.pointer.tx - this.pointer.x) * pf;
     this.pointer.y += (this.pointer.ty - this.pointer.y) * pf;
     const px = this.pointer.x;
